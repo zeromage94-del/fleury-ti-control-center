@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Fleury TI Control Center</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script>window.__APP_TOKEN__=__SESSION_TOKEN__;</script>
+  <script src="/static/app.js" defer></script>
+  <script src="/static/extra.js" defer></script>
+  <script src="/static/workstation.js" defer></script>
+  <script src="/static/selection.js" defer></script>
+  <script src="/static/upgrade.js" defer></script>
+  <script src="/static/video_tools.js" defer></script>
+  <script src="/static/integrations.js" defer></script>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand"><img src="/static/mark.png" alt="Símbolo Fleury"><div class="brand-title"><strong>Fleury</strong><span>TI Control Center</span></div></div>
+    <div class="top-search"><span id="search-icon"></span><input id="global-search" placeholder="Buscar máquinas, usuários ou IP..." aria-label="Pesquisar"></div>
+    <div class="global-target" aria-label="Equipamento alvo de todas as abas"><label for="global-machine-picker">Máquina/IP alvo</label><select id="global-machine-picker" aria-label="Selecionar máquina para executar ferramentas"><option value="">Escolha um IP...</option></select><button type="button" id="global-add-machine" title="Cadastrar IP">+</button></div>
+    <div class="top-status"><span class="dot green"></span><span>Aplicação local</span></div>
+    <div class="current-user"><div class="avatar" id="avatar"></div><div><strong id="user-name">Técnico de TI</strong><small>Suporte autorizado</small></div></div>
+  </header>
+  <aside class="sidebar">
+    <nav id="navigation" aria-label="Menu principal"></nav>
+    <div class="sidebar-foot"><div class="mini-brand"><img src="/static/mark.png" alt=""><div>Grupo<strong>Fleury</strong></div></div><small>Paixão pelas pessoas e<br>pelo que fazemos.</small><div class="version">Versão MVP 1.2 • Ambiente local</div><div class="sidebar-author">Criado por Ana Tazinaffo</div></div>
+  </aside>
+  <main class="main" id="main" tabindex="-1"></main>
+</div>
+<div class="toast-layer" id="toasts" aria-live="polite"></div>
+<div id="modal-root"></div>
+<input type="file" id="csv-file" accept=".csv,text/csv" hidden>
+</body>
+</html>
