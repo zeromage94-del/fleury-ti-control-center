@@ -27,8 +27,14 @@ jobs:
       - name: Instalar compilador de instaladores
         shell: pwsh
         run: |
-          choco install innosetup --version=6.7.3 --yes --no-progress
-          if ($LASTEXITCODE -ne 0) { throw 'Falha ao instalar Inno Setup' }
+          $compilerInstaller = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' -OutFile $compilerInstaller
+          $signature = Get-AuthenticodeSignature -LiteralPath $compilerInstaller
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Pyrsys') { throw 'Assinatura do compilador inválida' }
+          $compilerDirectory = Join-Path $env:RUNNER_TEMP 'InnoSetup'
+          $installerProcess = Start-Process -FilePath $compilerInstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',('/DIR="' + $compilerDirectory + '"')) -WindowStyle Hidden -Wait -PassThru
+          if ($installerProcess.ExitCode -ne 0) { throw 'Falha ao instalar Inno Setup' }
+          "INNO_SETUP_ISCC=$compilerDirectory\ISCC.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Gerar portátil e instalador
         run: python build_windows.py --require-installer
       - name: Verificar artefatos obrigatórios
@@ -46,3 +52,4 @@ jobs:
             entrega_windows/SHA256.txt
           if-no-files-found: error
           retention-days: 14
+
