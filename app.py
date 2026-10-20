@@ -31,6 +31,8 @@ import insights
 import software_catalog
 import integrations
 import admin_scripts
+import device_discovery
+import software_jobs
 
 # Arquivos da aplicação empacotada podem ficar no diretório protegido _internal.
 # Os dados reais nunca devem ser criados dentro desse diretório nem em Program Files.
@@ -100,6 +102,15 @@ def initialize():
           mime TEXT NOT NULL, bytes INTEGER NOT NULL, created_at TEXT NOT NULL,
           FOREIGN KEY (target) REFERENCES machines(target));
         ''')
+        c.execute("""CREATE TABLE IF NOT EXISTS software_jobs(
+          id TEXT PRIMARY KEY, target TEXT NOT NULL, operation TEXT NOT NULL,
+          packages TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL, fingerprint TEXT NOT NULL,
+          result TEXT DEFAULT '{}', error TEXT DEFAULT '')""")
+        machine_columns = {r['name'] for r in c.execute('PRAGMA table_info(machines)')}
+        for name in ('device_type', 'type_source', 'type_evidence'):
+            if name not in machine_columns:
+                c.execute('ALTER TABLE machines ADD COLUMN ' + name + " TEXT DEFAULT 'unknown'")
         columns = {r['name'] for r in c.execute('PRAGMA table_info(tickets)')}
         for name, decl in (
             ('category', "TEXT DEFAULT 'Não classificado'"),
@@ -173,6 +184,9 @@ def ps_json(script, timeout=28):
 
 def remote_script(target, body, timeout=28, argument=None):
     validate_target(target, registered=True)
+    kind = rows('SELECT device_type FROM machines WHERE target=?', (target,))
+    if kind and kind[0]['device_type'] == 'printer':
+        raise ValueError('A operação Windows não pode ser executada em impressora. Selecione um computador.')
     arglist = '-ArgumentList ' + ps_literal(argument) if argument is not None else ''
     return ps_json('$t=' + ps_literal(target) + '; '
                    + 'Invoke-Command -ComputerName $t -ScriptBlock { '
@@ -225,41 +239,80 @@ def discover_neighbors():
     return result
 
 
-def scan_neighbors():
-    seen = discover_neighbors()
+def record_device(target, info, mac='', origin='Descoberta autorizada'):
+    save_machine(target, mac=mac, status='Online' if info['alive'] else 'Sem resposta', origin=origin)
+    with LOCK, db() as c:
+        c.execute("UPDATE machines SET device_type=?,type_source='probe',type_evidence=? WHERE target=? AND type_source!='manual' AND (device_type='unknown' OR ?!='unknown')",
+                  (info['device_type'], info['evidence'], target, info['device_type']))
+
+
+def scan_targets(targets):
+    found = 0
     with ThreadPoolExecutor(max_workers=24) as pool:
-        futures = {pool.submit(ping_one, target): (target, mac) for target, mac in seen[:250]}
+        futures = {pool.submit(device_discovery.probe,t,ping_one): t for t in targets}
+        for future in as_completed(futures):
+            target, info = futures[future], future.result()
+            if info['alive']:
+                record_device(target,info)
+                found += 1
+    return found
+
+
+def scan_neighbors():
+    seen = discover_neighbors()[:250]
+    with ThreadPoolExecutor(max_workers=24) as pool:
+        futures = {pool.submit(device_discovery.probe,t,ping_one):(t,mac) for t,mac in seen}
         online = 0
         for future in as_completed(futures):
             target, mac = futures[future]
-            alive = future.result()
-            online += int(alive)
-            save_machine(target, mac=mac, status='Online' if alive else 'Sem resposta', origin='Vizinho de rede')
-    audit('Descoberta de vizinhos', '', True, f'{len(seen)} encontrados / {online} ICMP')
-    return {'found': min(len(seen), 250), 'online': online,
-            'note': 'O ping pode ser bloqueado pelo firewall; sem resposta não significa desligado.'}
+            info = future.result()
+            online += int(info['alive'])
+            record_device(target,info,mac,'Vizinho de rede')
+    audit('Descoberta de vizinhos','',True,f'{len(seen)} encontrados / {online} acessíveis')
+    return {'found':len(seen),'online':online,'note':'Inclui vizinhos conhecidos mesmo sem resposta. Tipo inferido por portas, sujeito a confirmação.'}
+
+
+def scan_segments(segments):
+    segments = device_discovery.validate_segments(segments)
+    targets = sorted({str(ip) for cidr in segments for ip in ipaddress.ip_network(cidr).hosts()})
+    count = scan_targets(targets)
+    audit('Descoberta multissegmento',', '.join(segments),True,f'{count}/{len(targets)} dispositivos acessíveis')
+    return {'found':count,'online':count,'segments':segments,
+            'note':'Detecta respostas ICMP ou TCP mesmo com ping bloqueado. Dispositivos isolados ou filtrados podem não aparecer; classificação por portas é provável.'}
 
 
 def scan_subnet(cidr):
-    try:
-        subnet = ipaddress.ip_network(cidr, strict=False)
-    except ValueError:
-        raise ValueError('CIDR inválido. Exemplo: 192.168.1.0/24')
-    private_blocks = [ipaddress.ip_network(x) for x in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')]
-    if subnet.version != 4 or not any(subnet.subnet_of(block) for block in private_blocks) or subnet.num_addresses > 256:
-        raise ValueError('Informe uma sub-rede IPv4 privada de até 256 endereços (/24 ou menor).')
-    targets = [str(i) for i in subnet.hosts()]
-    count = 0
-    with ThreadPoolExecutor(max_workers=24) as pool:
-        futures = {pool.submit(ping_one, target): target for target in targets}
-        for future in as_completed(futures):
-            target = futures[future]
-            if future.result():
-                count += 1
-                save_machine(target, status='Online', origin='Varredura autorizada')
-    audit('Varredura de sub-rede', str(subnet), True, f'{count}/{len(targets)} ICMP')
-    return {'found': count, 'online': count,
-            'note': 'Somente máquinas que respondem a ICMP são incluídas; outras podem estar ligadas.'}
+    return scan_segments([cidr])
+
+
+def local_segments():
+    addresses=ps_json("Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.AddressState -eq 'Preferred'} | Select-Object IPAddress,PrefixLength | ConvertTo-Json -Compress")
+    if isinstance(addresses,dict): addresses=[addresses]
+    result=[]
+    for item in addresses or []:
+        try:
+            ip=ipaddress.ip_address(item['IPAddress'])
+            if ip.is_loopback or ip.is_link_local or not ip.is_private: continue
+            prefix=max(24,int(item['PrefixLength']))
+            result.append(str(ipaddress.ip_network(str(ip)+'/'+str(prefix),strict=False)))
+        except (ValueError,KeyError,TypeError): continue
+    return list(dict.fromkeys(result))[:8]
+
+
+def require_computer(target):
+    validate_target(target,registered=True)
+    machine=rows('SELECT device_type FROM machines WHERE target=?',(target,))[0]
+    if machine['device_type']!='computer':
+        raise ValueError('Instalação exige alvo classificado como computador. Verifique e classifique o equipamento na aba Máquinas.')
+
+
+def execute_software(target,operation,ids):
+    require_computer(target)
+    script=software_catalog.INSTALL_PS if operation=='install' else software_catalog.UNINSTALL_PS
+    return maintenance.call(remote_script,target,script,{'packages':ids},timeout=3600)
+
+
+SOFTWARE_MANAGER=software_jobs.Manager(db,audit,now,execute_software)
 
 
 def metrics():
@@ -628,7 +681,7 @@ def sync_zammad():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'FleuryTI/1.2'
+    server_version = 'FleuryTI/1.3'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/'):
@@ -690,6 +743,8 @@ class Handler(BaseHTTPRequestHandler):
                   '/static/upgrade.js': 'text/javascript; charset=utf-8',
                   '/static/video_tools.js': 'text/javascript; charset=utf-8',
                   '/static/integrations.js': 'text/javascript; charset=utf-8',
+                  '/static/fleet.js': 'text/javascript; charset=utf-8',
+                  '/static/fleet.css': 'text/css; charset=utf-8',
                   '/static/mark.png': 'image/png'}
         if path in static:
             data = (APP / path.lstrip('/')).read_bytes()
@@ -715,8 +770,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/zebra/catalog':
             return self.run_read_admin('Consultar catálogo Zebra', '', lambda: {
                 'printers': integrations.zpl_list('printer'), 'labels': integrations.zpl_list('label')})
+        if path == '/api/software/jobs':
+            return self.send(obj=SOFTWARE_MANAGER.list())
+        if path == '/api/software/installed':
+            require_computer(target)
+            return self.run_read_admin('Consultar apps por máquina',target,
+                lambda: remote_script(target,software_catalog.INVENTORY_PS,timeout=90))
         if path == '/api/software/catalog':
-            return self.send(obj={'programs': software_catalog.catalog(), 'max_batch': 5})
+            return self.send(obj={'programs': software_catalog.catalog(), 'max_batch': 20})
         if path == '/api/machines':
             return self.send(obj=rows('SELECT * FROM machines ORDER BY CASE status WHEN "Online" THEN 0 ELSE 1 END, name COLLATE NOCASE'))
         if path == '/api/tickets':
@@ -872,6 +933,14 @@ class Handler(BaseHTTPRequestHandler):
                 if not x.rowcount: raise ValueError('Chamado não encontrado.')
             audit('Classificação de atendimento', str(ident), True, category)
             return self.send(obj={'ok': True})
+        if path == '/api/machines/classify':
+            validate_target(target,registered=True)
+            kind=b.get('device_type')
+            if kind not in ('computer','printer','unknown'): raise ValueError('Tipo inválido.')
+            with LOCK, db() as c:
+                c.execute("UPDATE machines SET device_type=?,type_source='manual',type_evidence='Classificado pelo técnico',updated_at=? WHERE target=?",(kind,now(),target))
+            audit('Classificar dispositivo',target,True,kind)
+            return self.send(obj={'ok':True})
         if path == '/api/machines/add':
             validate_target(target)
             save_machine(target, name=b.get('name'), origin='Manual')
@@ -883,6 +952,12 @@ class Handler(BaseHTTPRequestHandler):
             mode = b.get('mode')
             if mode == 'neighbors':
                 return self.send(obj=scan_neighbors())
+            if mode == 'segments':
+                return self.send(obj=scan_segments(b.get('segments')))
+            if mode == 'local':
+                segments=local_segments()
+                if not segments: raise ValueError('Nenhum segmento local elegível. Informe os CIDRs autorizados.')
+                return self.send(obj=scan_segments(segments))
             if mode == 'subnet':
                 return self.send(obj=scan_subnet(str(b.get('cidr', '')).strip()))
             raise ValueError('Modo de descoberta inválido.')
@@ -958,45 +1033,14 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 audit(label, target, False, str(exc))
                 raise
-        if path == '/api/software/uninstall':
-            validate_target(target, registered=True)
+        if path in ('/api/software/install','/api/software/uninstall'):
+            require_computer(target)
             if not WIN:
-                raise RuntimeError('Desinstalação por WinGet requer Windows e WinRM autorizado.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirmação do técnico obrigatória.')
-            package_ids = software_catalog.validate_packages(b.get('packages'))
-            # Permitido apenas para pacotes listados, com autenticação WinRM existente.
-            try:
-                result = maintenance.call(remote_script, target, software_catalog.UNINSTALL_PS,
-                                          {'packages': package_ids}, timeout=1500)
-                outcomes = result.get('Desinstalacoes', []) if isinstance(result, dict) else []
-                if isinstance(outcomes, dict): outcomes=[outcomes]
-                success = (len(outcomes) == len(package_ids) and
-                           all(x.get('CodigoSaida') == 0 for x in outcomes))
-                audit('Desinstalação WinGet', target, success, ', '.join(package_ids))
-                return self.send(obj={'ok': success, 'result': result})
-            except Exception as exc:
-                audit('Desinstalação WinGet', target, False, str(exc))
-                raise
-        if path == '/api/software/install':
-            validate_target(target, registered=True)
-            if not WIN:
-                raise RuntimeError('Instalação por WinGet requer Windows e WinRM autorizado.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirmação do técnico obrigatória.')
-            package_ids = software_catalog.validate_packages(b.get('packages'))
-            # Integração apenas por catálogo fixo; nunca recebe comando arbitrário ou URL.
-            try:
-                result = maintenance.call(remote_script, target, software_catalog.INSTALL_PS,
-                                          {'packages': package_ids}, timeout=1500)
-                outcomes = result.get('Instalacoes', []) if isinstance(result, dict) else []
-                if isinstance(outcomes, dict): outcomes=[outcomes]
-                success = (len(outcomes) == len(package_ids) and all(x.get('CodigoSaida') == 0 for x in outcomes))
-                audit('Instalação de software WinGet', target, success, ', '.join(package_ids))
-                return self.send(obj={'ok': success, 'result': result})
-            except Exception as exc:
-                audit('Instalação de software WinGet', target, False, str(exc))
-                raise
+                raise RuntimeError('Operação requer Windows e WinRM administrativo existente.')
+            package_ids=software_catalog.validate_packages(b.get('packages'))
+            operation='install' if path.endswith('/install') else 'uninstall'
+            result=SOFTWARE_MANAGER.submit(target,operation,b['packages'],package_ids)
+            return self.send(202,{'ok':True,**result,'scope':'machine'})
         if path == '/api/diagnostics/disk-guided':
             raise ValueError('Use GET para diagnóstico de disco.')
         if path == '/api/maintenance/flush-dns':
@@ -1132,6 +1176,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     initialize()
+    SOFTWARE_MANAGER.recover()
     port = int(os.environ.get('FLEURY_TI_PORT', '8765'))
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     server.cleanup_previews = {}

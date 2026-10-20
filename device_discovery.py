@@ -1,0 +1,45 @@
+"""Descoberta limitada a segmentos privados autorizados; sem autenticação ou mudanças."""
+import ipaddress
+import socket
+
+PORTS = (5985, 5986, 3389, 445, 9100, 631, 443, 80)
+
+
+def classify(ports):
+    ports = set(ports)
+    if ports & {5985, 5986, 3389, 445}:
+        return 'computer', 'Serviço de computador detectado; confirmar no inventário Windows.'
+    if ports & {9100, 631}:
+        return 'printer', 'Serviço de impressão detectado; classificação provável.'
+    return 'unknown', 'Tipo não confirmado; classifique após verificar o equipamento.'
+
+
+def probe(target, ping):
+    opened = []
+    for port in PORTS:
+        try:
+            with socket.create_connection((target, port), timeout=0.18):
+                opened.append(port)
+        except OSError:
+            continue
+    alive = bool(opened) or ping(target)
+    kind, evidence = classify(opened)
+    return {'alive': alive, 'device_type': kind, 'evidence': evidence,
+            'ports': opened}
+
+
+def validate_segments(values):
+    if not isinstance(values, list) or not 1 <= len(values) <= 8:
+        raise ValueError('Informe de 1 a 8 segmentos privados, com até 256 endereços cada.')
+    result = []
+    blocks = [ipaddress.ip_network(x) for x in ('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')]
+    for value in values:
+        try:
+            subnet = ipaddress.ip_network(value, strict=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError('Segmento inválido.') from exc
+        if subnet.version != 4 or subnet.num_addresses > 256 or not any(subnet.subnet_of(b) for b in blocks):
+            raise ValueError('Use segmentos IPv4 privados de até /24 por segmento.')
+        if str(subnet) not in result:
+            result.append(str(subnet))
+    return result

@@ -37,3 +37,10 @@ A alteração subsequente do workflow apenas evita rebuild por documentação; n
 - Corrigido vazamento de conexões SQLite: transação com commit/rollback e fechamento obrigatório, inclusive em exceções. O primeiro workflow revelou bloqueio do banco no encerramento dos testes Windows.
 - README, AGENTS, workflow Windows, exclusões de dados locais e backlog.
 
+## v1.3 em validação
+
+Implementados catálogo visual WinUtil remoto, fila assíncrona persistente, escopo machine obrigatório, classificação de dispositivos, seletores por grupo e descoberta ICMP/TCP multissegmento.
+
+Verificação local: 41 testes Python aprovados; oito scripts JavaScript carregados e todas as telas renderizadas no teste de interface. No navegador, com base fictícia e execução remota substituída por simulação: clique em instalar enviou tarefa sem modal; impressora selecionada bloqueou instalação; fila mostrou conclusão. Nenhum aplicativo foi instalado em equipamento real durante esses testes.
+
+O build aprovado acima é da v1.2.1. O build v1.3 será confirmado por execução própria antes de entregar binários.

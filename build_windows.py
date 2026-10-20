@@ -11,7 +11,7 @@ import venv
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '1.2.1'
+VERSION = '1.3'
 BIN = 'FleuryTIControlCenter.exe'
 NAME = 'FleuryTIControlCenter'
 OUT = ROOT / 'entrega_windows'

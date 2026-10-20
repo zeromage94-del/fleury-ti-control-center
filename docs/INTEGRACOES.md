@@ -16,7 +16,7 @@ Defina `FLEURY_ZAMMAD_URL=https://...` e `FLEURY_ZAMMAD_TOKEN` apenas no ambient
 
 ## WinUtil e aplicativos
 
-Fonte: https://github.com/ChrisTitusTech/winutil (MIT). O catálogo Fleury usa WinGet por WinRM para instalar/desinstalar IDs predefinidos, com confirmação e resultados por pacote. WinGet exige contexto compatível: não contornar bloqueio corporativo quando indisponível.
+Fonte: https://github.com/ChrisTitusTech/winutil (MIT). O catálogo Fleury usa WinGet por WinRM para instalar/desinstalar IDs predefinidos, com envio por clique e resultados por pacote. WinGet exige contexto compatível: não contornar bloqueio corporativo quando indisponível.
 
 Para abrir o WinUtil original, a TI deve obter e revisar uma versão fixa do script oficial, armazená-la localmente, calcular `Get-FileHash C:\TI\winutil.ps1 -Algorithm SHA256`, definir `FLEURY_WINUTIL_PATH` e `FLEURY_WINUTIL_SHA256`, e abrir o Fleury numa sessão com permissões adequadas. O botão verifica o hash e abre PowerShell separado, na estação do técnico. Não baixa e executa código da internet, não muda ExecutionPolicy e não aplica ações WinUtil à máquina remota selecionada. O Fleury registra somente a abertura.
 
@@ -42,3 +42,13 @@ Consultas podem falhar quando componente, canal de eventos ou permissão não ex
 ## Licenças e dados
 
 Integração por API não incorpora código dos projetos. WinUtil e zpl-rest declaram MIT; Zammad declara AGPLv3. Confira a licença da versão implantada antes de redistribuir ou modificar esses projetos. Conteúdo editorial Vicarius não foi copiado. Marca/imagens e autoria já existentes no ZIP foram preservadas; não implica afiliação oficial nem concede licença sobre marcas.
+
+## v1.3: escopo, filas e descoberta
+
+As rotas POST `/api/software/install` e `/api/software/uninstall` recebem alvo e chaves do catálogo e retornam HTTP 202 + `job_id` sem exigir `confirm`. A sessão/token local e validação de alvo continuam obrigatórios. `GET /api/software/jobs` retorna até 50 tarefas. Não existe execução PowerShell arbitrária enviada pelo cliente.
+
+Operações WinGet usam `--scope machine --silent --disable-interactivity`; exigem identidade WinRM administrativa. Se o WinGet estiver instalado mas não estiver no PATH do WinRM, o cliente procura o executável no diretório padrão do DesktopAppInstaller sem mudar ACLs. Não há elevação, fallback por usuário ou mudanças em políticas. Instalações individuais já existentes em outros perfis não são removidas pelo uninstall por máquina; esse caso exige ferramenta corporativa com contexto apropriado.
+
+A limpeza TEMP existente já percorre todos os perfis locais elegíveis. DNS, Spooler, restauração e manutenção do sistema são operações da máquina. Preferências e dados pessoais de cada usuário não são alterados por uma promessa genérica de todos os usuários.
+
+`POST /api/machines/scan` aceita `mode=local`, `mode=segments` com lista `segments`, além dos modos anteriores. Rede local maior que /24 usa o /24 da interface como ponto inicial; informe os demais segmentos autorizados. Detecção TCP cobre 5985,5986,3389,445,9100,631,443,80. Windows/SMB sugere computador; 9100/631 sem esses serviços sugere impressora. Isso não é identificação conclusiva do fabricante/SO. `POST /api/machines/classify` permite corrigir o tipo; alterações manuais são preservadas nas novas varreduras.

@@ -142,7 +142,7 @@ main.addEventListener('change',e=>{
  if(e.target.matches('[data-software-key]')){
   const key=e.target.dataset.softwareKey;
   if(e.target.checked){
-   if(S.softwareSelected.size>=5){e.target.checked=false;toast('Selecione até cinco programas por operação.',true);return;}
+   if(S.softwareSelected.size>=20){e.target.checked=false;toast('Selecione até vinte programas por operação.',true);return;}
    S.softwareSelected.add(key);
   }else S.softwareSelected.delete(key);
   render();
