@@ -1,0 +1,48 @@
+name: Windows EXE e instalador
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testes Python sem administração real
+        run: python -m unittest discover -s tests -v
+      - name: Testes da interface
+        run: node tests/ui_smoke.cjs
+      - name: Instalar compilador de instaladores
+        shell: pwsh
+        run: |
+          choco install innosetup --version=6.7.3 --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao instalar Inno Setup' }
+      - name: Gerar portátil e instalador
+        run: python build_windows.py --require-installer
+      - name: Verificar artefatos obrigatórios
+        shell: pwsh
+        run: |
+          if (!(Test-Path entrega_windows/*Portatil*.zip)) { throw 'Portátil ausente' }
+          if (!(Test-Path entrega_windows/*Instalador*.exe)) { throw 'Instalador ausente' }
+          if (!(Test-Path entrega_windows/SHA256.txt)) { throw 'Checksums ausentes' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fleury-TI-Windows-x64
+          path: |
+            entrega_windows/*Portatil*.zip
+            entrega_windows/*Instalador*.exe
+            entrega_windows/SHA256.txt
+          if-no-files-found: error
+          retention-days: 14
