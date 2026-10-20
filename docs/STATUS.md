@@ -37,10 +37,19 @@ A alteração subsequente do workflow apenas evita rebuild por documentação; n
 - Corrigido vazamento de conexões SQLite: transação com commit/rollback e fechamento obrigatório, inclusive em exceções. O primeiro workflow revelou bloqueio do banco no encerramento dos testes Windows.
 - README, AGENTS, workflow Windows, exclusões de dados locais e backlog.
 
-## v1.3 em validação
+## v1.3 com build aprovado
 
 Implementados catálogo visual WinUtil remoto, fila assíncrona persistente, escopo machine obrigatório, classificação de dispositivos, seletores por grupo e descoberta ICMP/TCP multissegmento.
 
 Verificação local: 41 testes Python aprovados; oito scripts JavaScript carregados e todas as telas renderizadas no teste de interface. No navegador, com base fictícia e execução remota substituída por simulação: clique em instalar enviou tarefa sem modal; impressora selecionada bloqueou instalação; fila mostrou conclusão. Nenhum aplicativo foi instalado em equipamento real durante esses testes.
 
-O build aprovado acima é da v1.2.1. O build v1.3 será confirmado por execução própria antes de entregar binários.
+Build v1.3 aprovado no commit `fdc2c11df3261aed5fa420f6a138e7cc8203c531`: https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/39476581622
+
+O runner Windows aprovou 41 testes Python, oito scripts JavaScript e renderização de todas as páginas, além de gerar e enviar os binários.
+
+Download v1.3: https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/39476581622/artifacts/12289103674
+
+- `Fleury_TI_Portatil_v1.3_Windows_x64.zip`: SHA256 `3d7fbb4510d31ee30d7812fcc32147157bf5740ad3cbe9dc2308588bbe0912a7`.
+- `Fleury_TI_Instalador_v1.3_Windows_x64.exe`: SHA256 `812a26fd73f0aaff2a3758e9508a15bb934e64c3729547727ee9a7c29850bff2`.
+
+Artefatos com retenção de 14 dias. A execução em máquinas reais e a disponibilidade de WinGet/escopo machine no ambiente corporativo ainda precisam de homologação. Não foram realizados testes administrativos reais na rede do usuário.
