@@ -1,0 +1,30 @@
+Fleury TI Control Center v1.2 - Distribuicao independente
+
+FORMATO PORTATIL COMPILADO NO WINDOWS
+- Extraia TODO o arquivo ZIP para uma pasta gravavel e execute FleuryTIControlCenter.exe.
+- Nao execute o .exe sozinho fora da pasta: o diretorio _internal e necessario.
+- Nao precisa de Python no computador destino.
+- Os dados e imagens ficam na subpasta data e sao preservados ao substituir o aplicativo.
+
+FORMATO INSTALADOR COMPILADO NO WINDOWS
+- Execute Fleury_TI_Instalador_v1.2_Windows_x64.exe (requer permissao para instalar).
+- Atalho no menu Iniciar e opcional na area de trabalho; desinstalacao via Windows.
+- Banco/fotos ficam em %LOCALAPPDATA%\FleuryTIControlCenter\data e permanecem apos a desinstalacao.
+
+SEGURANCA E VALIDACAO
+- Servidor escuta somente em 127.0.0.1, usando um token de sessao.
+- Operacoes em outras maquinas exigem WinRM e permissoes corporativas preexistentes.
+- Sem credenciais embutidas e sem scripts baixados/rodados automaticamente.
+- Acoes remotas reais exigem homologacao do time de TI e Seguranca.
+- Sem assinatura de codigo, o Windows SmartScreen/EDR pode alertar. Solicite assinatura e homologacao; nao contorne os alertas.
+- A aplicacao nao e um produto oficial, homologado ou distribuido pelo Grupo Fleury.
+
+COMO ENCERRAR
+- Feche a aplicacao pelo botao Encerrar aplicativo nas Configuracoes.
+- Fechar somente a aba do navegador nao encerra o servidor local.
+
+SUPORTE / LOGS
+- Portatil: data\logs\runtime.log
+- Instalado: %LOCALAPPDATA%\FleuryTIControlCenter\data\logs\runtime.log
+
+Criado por Ana Tazinaffo
