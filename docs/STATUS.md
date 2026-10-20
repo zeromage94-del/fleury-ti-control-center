@@ -5,7 +5,7 @@ Data: 20/10/2026. Base: ZIP v1.2 do usuário.
 ## Verificado localmente
 
 - Sintaxe Python dos módulos alterados.
-- Nove testes com mocks: URL/TLS, IDs Zebra, confirmação, variáveis sem comandos ZPL, redirecionamento, sigilo de tokens, hash WinUtil e auditoria.
+- Dez testes com mocks: fechamento SQLite, URL/TLS, IDs Zebra, confirmação, variáveis sem comandos ZPL, redirecionamento, sigilo de tokens, hash WinUtil e auditoria.
 - Oito testes existentes: catálogo, limpeza e proteção de pontos de restauração.
 - Sete scripts JavaScript carregados juntos em ordem; todas as páginas renderizadas num DOM de teste; 48 referências de ações verificadas. Não equivale a teste visual em navegador.
 
@@ -23,4 +23,5 @@ Data: 20/10/2026. Base: ZIP v1.2 do usuário.
 - Consultas administrativas fixas e auditadas.
 - Resultado DISM/SFC/CHKDSK respeita código de saída.
 - Atualização periódica preserva campos enquanto estão em edição.
+- Corrigido vazamento de conexões SQLite: transação com commit/rollback e fechamento obrigatório, inclusive em exceções. O primeiro workflow revelou bloqueio do banco no encerramento dos testes Windows.
 - README, AGENTS, workflow Windows, exclusões de dados locais e backlog.

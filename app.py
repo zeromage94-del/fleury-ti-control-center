@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse, urlsplit
@@ -59,11 +60,16 @@ def now():
     return datetime.now().astimezone().isoformat(timespec='seconds')
 
 
+@contextmanager
 def db():
     c = sqlite3.connect(DB, timeout=20)
-    c.row_factory = sqlite3.Row
-    c.execute('PRAGMA journal_mode=WAL')
-    return c
+    try:
+        c.row_factory = sqlite3.Row
+        c.execute('PRAGMA journal_mode=WAL')
+        with c:
+            yield c
+    finally:
+        c.close()
 
 
 def initialize():

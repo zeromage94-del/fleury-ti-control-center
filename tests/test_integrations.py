@@ -14,6 +14,18 @@ import app
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_database_connection_closes_on_success_and_failure(self):
+        connection=MagicMock()
+        with patch.object(app.sqlite3,'connect',return_value=connection):
+            with app.db() as current:
+                self.assertIs(current,connection)
+            connection.close.assert_called_once()
+            connection.reset_mock()
+            with self.assertRaises(ValueError):
+                with app.db():
+                    raise ValueError('rollback')
+            connection.close.assert_called_once()
+
     def test_service_url_policy(self):
         for value in ('https://printer.example', 'https://printer.example:8443', 'http://127.0.0.1:8000'):
             with patch.dict(os.environ, {'FLEURY_ZPL_REST_URL':value}):
