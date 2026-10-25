@@ -1,6 +1,11 @@
 # Estado atual: v1.3.2
 
-25/10/2026: 61 testes Python e regressões JavaScript aprovados localmente. Consulte [relatório da simulação](VALIDACAO_1.3.2.md). Build desta versão pendente de confirmação no GitHub Actions. O histórico abaixo refere-se às versões anteriores.
+25/10/2026: **v1.3.2 compilada e testada no Windows**, incluindo a correção da descoberta de vizinhos por IPv4 (PR #4, commit `c7b434911f598f54cc192509e2cddacaaae57328`). O [workflow Windows aprovado](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40189673998) executou **62 testes Python**, regressões JavaScript, build portátil/instalador, inicialização/reinicialização do portátil, abertura do instalado, API loopback e preservação do SQLite na desinstalação. [Artefatos compilados](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40189673998/artifacts/12596464419), expiração **08/11/2026 11:38:59 UTC**.
+
+- `Fleury_TI_Portatil_v1.3.2_Windows_x64.zip`: SHA256 `439e84dbff90b0e70185c1847eaa8a4d8e27e4661039456510541acb7fd7f511`.
+- `Fleury_TI_Instalador_v1.3.2_Windows_x64.exe`: SHA256 `37969a86f3edfd179d0633fc9d9e1f6804fd2e60c91a360915f69ade83d95977`.
+
+[Relatório de simulação](VALIDACAO_1.3.2.md) e [roteiro de homologação P0](HOMOLOGACAO_P0.md). **Nenhuma validação em impressora física, WinRM/RDP corporativo, restauração real ou manutenção em produção foi realizada**. Issue P0 #1 permanece aberta. O histórico abaixo refere-se às versões anteriores.
 
 # Validação da migração
 
