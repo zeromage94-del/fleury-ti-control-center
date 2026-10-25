@@ -416,7 +416,7 @@ def restart_spooler(target):
 
 
 def restart_machine(target):
-    validate_target(target, registered=True)
+    require_computer(target)
     return ps_json('$t=' + ps_literal(target) + '; '
                    + 'Restart-Computer -ComputerName $t -Force -ErrorAction Stop; '
                    + '[PSCustomObject]@{ Mensagem="Reinício solicitado" } | ConvertTo-Json -Compress', timeout=40)
@@ -619,8 +619,8 @@ def sync_zammad():
                 chunk = json.loads(data.decode('utf-8'))
         except HTTPError as exc:
             raise RuntimeError(f'Zammad respondeu HTTP {exc.code}. Confira permissões de agente e token.') from exc
-        except URLError as exc:
-            raise RuntimeError('Não foi possível conectar ao Zammad por HTTPS: ' + str(exc.reason)[:160]) from exc
+        except (URLError, OSError) as exc:
+            raise RuntimeError('Não foi possível conectar ao Zammad por HTTPS. Confira certificado, endereço e permissões.') from exc
         if not isinstance(chunk, list):
             raise RuntimeError('Formato de resposta não suportado pela API do Zammad.')
         all_tickets.extend(chunk)
@@ -1026,10 +1026,14 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     result = cleanup_temps(target, days, True)
                     metrics = result
-                audit(label, target, True,
+                success = not (metrics.get('Falhas', 0) or metrics.get('LimiteAtingido', False))
+                message = ('Limpeza concluída.' if success else
+                           'Limpeza parcial: houve falhas ou o limite de inspeção foi atingido. Confira o resultado antes de repetir.')
+                audit(label, target, success,
                       f'dias={days}; removidos={metrics.get("ArquivosRemovidos", 0)}; '
-                      f'liberadosMB={metrics.get("LiberadosMB", 0)}; falhas={metrics.get("Falhas", 0)}')
-                return self.send(obj={'ok': True, 'result': result})
+                      f'liberadosMB={metrics.get("LiberadosMB", 0)}; falhas={metrics.get("Falhas", 0)}; '
+                      f'limite={metrics.get("LimiteAtingido", False)}')
+                return self.send(obj={'ok': success, 'partial': not success, 'message': message, 'result': result})
             except Exception as exc:
                 audit(label, target, False, str(exc))
                 raise
@@ -1144,7 +1148,7 @@ class Handler(BaseHTTPRequestHandler):
                   '/api/admin/restart':'Reiniciar computador','/api/admin/clear-print':'Limpar fila de impressão',
                   '/api/admin/spooler':'Reiniciar serviço Spooler'}
         if path in remote:
-            validate_target(target, registered=True)
+            require_computer(target)
             if path in ('/api/admin/restart', '/api/admin/clear-print', '/api/admin/spooler') and b.get('confirm') is not True:
                 raise ValueError('Confirmação explícita obrigatória.')
             if not WIN:
@@ -1183,7 +1187,7 @@ def main():
     server.restore_previews = {}
     url = f'http://127.0.0.1:{port}/'
     print('==============================================')
-    print(' FLEURY TI CONTROL CENTER - versão MVP 1.2')
+    print(' FLEURY TI CONTROL CENTER - versão 1.3.1')
     print(' Local:', url)
     print(' Usuário:', metrics()['username'])
     print(' Windows:', WIN)
@@ -1202,3 +1206,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

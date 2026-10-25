@@ -187,7 +187,7 @@ act=async function(action,data={}){
     const route=quick?'maintenance/quick-optimize':'maintenance/cleanup';
     const d=await request(route,{target:m.target,days,confirm:true});
     S.diagnostics={target:m.target,label:quick?'Resultado da otimização rápida':'Resultado da limpeza de temporários',result:d.result};
-    render();toast('Ação concluída. Veja os arquivos removidos e o espaço liberado.');
+    render();toast(d.message||'Confira o resultado da limpeza.',d.ok===false);
    }});
  }
  if(action==='disk-service'){
@@ -357,3 +357,4 @@ actions=function(){
  const selector=`<div class="quick-dashboard-target"><label class="field-label" for="quick-machine-picker">Aplicar ações rápidas na máquina</label>${machinePicker('quick-machine-picker')}<button class="btn sm" data-act="machine-page">${ico('chevron')} Abrir todas as ferramentas</button></div>`;
  return html.replace('<div class="action-grid">',selector+'<div class="action-grid">');
 };
+

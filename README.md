@@ -1,4 +1,4 @@
-# Fleury TI Control Center 1.3
+# Fleury TI Control Center 1.3.1
 
 Central local de suporte Windows baseada no ZIP v1.2 fornecido pelo usuário. Python/stdlib, interface web local, SQLite e auditoria. Protótipo independente; não implica aprovação ou afiliação oficial do Grupo Fleury.
 
@@ -57,3 +57,4 @@ Usam mocks para administração e serviços externos; não provam comunicação 
 - [Vicarius](https://www.vicarius.io/articles/10-scripts-every-it-admin-should-have-in-their-toolbox): categorias administrativas implementadas localmente, sem copiar o artigo.
 
 Código desses projetos não foi incorporado. Confira licenças antes de redistribuí-los. Marca, imagens e créditos do ZIP foram preservados; não foi adicionada uma licença que conceda direitos sobre esses materiais.
+

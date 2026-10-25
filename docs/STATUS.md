@@ -53,3 +53,17 @@ Download v1.3: https://github.com/zeromage94-del/fleury-ti-control-center/action
 - `Fleury_TI_Instalador_v1.3_Windows_x64.exe`: SHA256 `812a26fd73f0aaff2a3758e9508a15bb934e64c3729547727ee9a7c29850bff2`.
 
 Artefatos com retenção de 14 dias. A execução em máquinas reais e a disponibilidade de WinGet/escopo machine no ambiente corporativo ainda precisam de homologação. Não foram realizados testes administrativos reais na rede do usuário.
+
+
+## v1.3.1 — regressão simulada em 25/10/2026
+
+Base revisada: 9b4f675137e7846211c546b8ac7a16540bef18ad.
+
+- Reproduzidos e corrigidos: limpeza parcial registrada como sucesso; RDP/terminal/reinício sem exigência de computador identificado; detalhes de transporte Zammad expostos na auditoria.
+- A limpeza agora devolve ok=false e partial=true quando há falhas ou limite de inspeção; a interface mostra alerta preservando os contadores.
+- 56 testes Python descobertos: 55 aprovados localmente e um reservado ao parser PowerShell nativo do runner Windows. Cenários parametrizados cobrem consultas administrativas, scripts fixos, console, manutenção, RDP/terminal/reinício, seleção, descoberta simulada, fila de instalação/desinstalação, Zebra, Zammad paginado, CSV, chamados, patrimônio/imagens, indicadores e auditoria.
+- Oito scripts JavaScript carregados, todas as páginas renderizadas e 56 referências de ações verificadas. Esse teste estrutural não comprova todos os cliques num navegador real.
+- Testes novos bloqueiam processos e conectividade externa não simulados; usam SQLite e arquivos temporários reais, sem equipamentos corporativos.
+- Workflow ampliado: parser PowerShell sem execução administrativa; abertura do portátil duas vezes, instalação silenciosa, abertura do EXE instalado, API loopback com registro fictício, imagem empacotada e preservação do banco após desinstalação. Resultado do novo build deve ser consultado no Actions; não pressupor aprovação antes da execução.
+
+Limite: simulação não executa comandos administrativos contra Windows remoto, nem comprova impressão física, limpeza real, recuperação do Windows, WinGet corporativo ou políticas do domínio. P0 #1 continua pendente de homologação autorizada. Os binários ficam nos artefatos do workflow, não nos arquivos-fonte do Git.

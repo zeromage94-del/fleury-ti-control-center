@@ -38,6 +38,8 @@ jobs:
           "INNO_SETUP_ISCC=$compilerDirectory\ISCC.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Gerar portátil e instalador
         run: python build_windows.py --require-installer
+      - name: Testar executáveis em ambiente descartável sem administração remota
+        run: python tests/windows_package_smoke.py
       - name: Verificar artefatos obrigatórios
         shell: pwsh
         run: |
@@ -53,3 +55,4 @@ jobs:
             entrega_windows/SHA256.txt
           if-no-files-found: error
           retention-days: 14
+
