@@ -1,4 +1,4 @@
-# Fleury TI Control Center 1.4.2
+# Fleury TI Control Center 1.4.3
 
 Central local de suporte Windows baseada no ZIP v1.2 fornecido pelo usuário. Python/stdlib, interface web local, SQLite e auditoria. Protótipo independente; não implica aprovação ou afiliação oficial do Grupo Fleury.
 
@@ -7,7 +7,11 @@ Central local de suporte Windows baseada no ZIP v1.2 fornecido pelo usuário. Py
 Windows 10/11 x64, Python 3.12: `python app.py`. Abra http://127.0.0.1:8765.
 Cadastre e selecione a máquina no topo. Ações remotas usam a identidade Windows do técnico e permissões WinRM/RDP existentes. O aplicativo não configura automaticamente firewall, TrustedHosts, EDR ou GPO.
 
-## Novo na v1.4.0
+## Novo na v1.4.3
+
+Todos os comandos executam ao clicar, sem pedido de autorização adicional do Fleury. Use a sessão administrativa Windows existente. Alvo, sessão local, parâmetros, catálogos e auditoria continuam validados; os formulários restantes coletam dados de cadastro ou segmentos de rede.
+
+## Recursos da v1.4
 
 - Downloads de todos os perfis locais: um clique exclui todos os arquivos e subpastas, sem prévia, seleção, filtro por idade ou confirmação adicional. Resultado com removidos, espaço liberado e falhas; separado da limpeza de TEMP.
 - Diagnóstico de impressoras comuns/Zebra, resultado verificado da limpeza da fila e reinício do Spooler. Fila vazia não comprova correção de defeito físico.
@@ -28,9 +32,9 @@ Cadastre e selecione a máquina no topo. Ações remotas usam a identidade Windo
 ## Recursos
 
 - Inventário, diagnósticos, RDP e console PowerShell remoto.
-- TEMP de todos os perfis, pontos de restauração, DISM/SFC/CHKDSK e impressão, com confirmações.
+- TEMP de todos os perfis, pontos de restauração, DISM/SFC/CHKDSK e impressão, com execução direta pelo clique.
 - Catálogo WinGet: instalar/desinstalar até vinte pacotes por operação, em fila persistente, com relatório por pacote.
-- Zebra/zpl-rest: impressoras, modelos e impressão confirmada por API, sem preview externo.
+- Zebra/zpl-rest: impressoras, modelos e impressão enviada pelo clique por API, sem preview externo.
 - Interface de aplicativos inspirada no WinUtil para computadores remotos; WinUtil original segue disponível por cópia local revisada, na estação do técnico.
 - Zammad: importação de até 300 chamados por execução; status da fila Fleury continua local.
 - Consultas de contas, Defender, firewall, eventos, boot e Windows Backup, além de inventário/rede/apps existentes.

@@ -298,9 +298,9 @@ class CorporateNetworkScenarios(unittest.TestCase):
         self.expect(performance['result']['MemoriaLivreGB'], 0.2, 'pressão de memória preservada no resultado')
         self.expect(self.get_for('/api/diagnostics/disk-100')[1]['result']['EventosDisco'][0]['ID'],
                     153, 'erro de armazenamento exige investigação, não promessa de limpeza')
-        self.expect(self.post_for('/api/maintenance/cleanup', days=14, confirm=False)[0],
-                    400, 'limpeza sem confirmação bloqueada')
-        status, result = self.post_for('/api/maintenance/cleanup', days=14, confirm=True)
+        self.expect(sum(path.exists() for path in self.lab.files), 3,
+                    'diagnósticos preservam arquivos até o clique de limpeza')
+        status, result = self.post_for('/api/maintenance/cleanup', days=14)
         self.expect(status, 200, 'limpeza parcialmente executada retorna resultado HTTP')
         self.expect(result['ok'], False, 'arquivo ocupado impede falso sucesso')
         self.expect(result['partial'], True, 'resultado parcial explícito')
@@ -309,7 +309,7 @@ class CorporateNetworkScenarios(unittest.TestCase):
                     'arquivo ocupado e documento pessoal preservados')
         self.expect(self.lab.download.exists(), True, 'otimização TEMP não apaga Downloads')
         self.lab.busy.clear()
-        result = self.post_for('/api/maintenance/quick-optimize', days=14, confirm=True)[1]
+        result = self.post_for('/api/maintenance/quick-optimize', days=14)[1]
         self.expect(result['ok'], True, 'nova execução após liberar arquivo conclui limpeza')
         self.expect(result['result']['Limpeza']['ArquivosRemovidos'], 1, 'somente TEMP restante foi apagado')
         self.expect(result['result']['SegurancaWindowsAlterada'], False, 'proteção corporativa não alterada')
@@ -393,17 +393,17 @@ class CorporateNetworkScenarios(unittest.TestCase):
                 self.expect(status, 200, 'diagnóstico de impressora comum/Zebra por HTTP')
                 self.expect(diagnostic['result']['ErroDetectado'], code, 'defeito físico permanece no diagnóstico')
                 self.expect(diagnostic['result']['healthy'], False, 'papel preso/ausente não é saúde normal')
-                self.expect(self.post_for('/api/admin/clear-print', printer=name, confirm=False)[0],
-                            400, 'excluir trabalhos exige confirmação')
+                self.expect(diagnostic['result']['TrabalhosNaFila'] > 0, True,
+                            'consulta preserva a fila até o clique de limpeza')
         self.lab.queue_locked = True
-        status, cleared = self.post_for('/api/admin/clear-print', printer='Zebra ZD421', confirm=True)
+        status, cleared = self.post_for('/api/admin/clear-print', printer='Zebra ZD421')
         self.expect(status, 200, 'fila parcialmente removida retorna contadores')
         self.expect(cleared['ok'], False, 'trabalho retido impede falso sucesso')
         self.expect(cleared['result']['Restantes'], 1, 'trabalho bloqueado continua na fila')
         self.expect(self.lab.printers['Laser corporativa']['jobs'], [1, 2, 3],
                     'limpeza Zebra não remove fila da impressora comum')
         self.lab.queue_locked = False
-        cleared = self.post_for('/api/admin/clear-print', printer='Zebra ZD421', confirm=True)[1]
+        cleared = self.post_for('/api/admin/clear-print', printer='Zebra ZD421')[1]
         self.expect(cleared['ok'], True, 'fila selecionada conclui após liberar bloqueio')
         diagnostic = self.get_for('/api/printers/diagnose', printer='Zebra ZD421')[1]
         self.expect(diagnostic['result']['healthy'], False,
@@ -414,10 +414,10 @@ class CorporateNetworkScenarios(unittest.TestCase):
                     'reposição física simulada de mídia permite diagnóstico saudável')
         self.lab.spooler = 'Stopped'
         self.lab.spooler_starts = False
-        restarted = self.post_for('/api/admin/spooler', confirm=True)[1]
+        restarted = self.post_for('/api/admin/spooler')[1]
         self.expect(restarted['ok'], False, 'spooler que continua parado não vira sucesso')
         self.lab.spooler_starts = True
-        restarted = self.post_for('/api/admin/spooler', confirm=True)[1]
+        restarted = self.post_for('/api/admin/spooler')[1]
         self.expect(restarted['ok'], True, 'recuperação do spooler confirma estado Running')
 
 

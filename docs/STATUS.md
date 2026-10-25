@@ -1,4 +1,10 @@
-# Estado atual: v1.4.2
+# Estado atual: v1.4.3
+
+Todos os comandos executam pelo clique do técnico, sem modal de autorização adicional e sem campo `confirm` na API. Abrange TEMP/Downloads, restauração, serviços/DISM/SFC/CHKDSK, DNS/TEF, reinício, Spooler/filas, drivers, impressão Zebra, WinUtil, fotos, software e encerramento. Formulários permanecem apenas para dados necessários. Sessão, alvo, parâmetros, catálogos, hashes e auditoria são preservados. Os cmdlets de escrita usam `-Confirm:$false`; DISM usa `/NoRestart`.
+
+A interface simulada verificou Downloads, troca de driver e 19 outros comandos por clique, sem modais e com alvo correto. Validação Linux: 106 testes descobertos, 97 aprovados e 9 casos nativos reservados ao Windows. Execução `416b952e-8375-493b-8926-06c254758931`. Build Windows desta revisão ainda em preparação.
+
+## Histórico: v1.4.2
 
 Downloads: uma única ação exclui todos os arquivos e subpastas vazias das pastas Downloads de todos os perfis locais do computador selecionado. Sem prévia, seleção, confirmação, filtro por idade ou limite de candidatos/profundidade. A pasta Downloads de cada perfil é preservada. Arquivos em uso, permissões negadas, links e pastas redirecionadas ficam explícitos no resultado parcial; sessão, alvo, auditoria e bloqueio de concorrência permanecem ativos.
 

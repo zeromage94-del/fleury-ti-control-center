@@ -38,22 +38,25 @@ class IntegrationTests(unittest.TestCase):
         with patch.object(integrations, 'api', return_value=[{'_id':'p1','name':'Zebra'}]):
             self.assertEqual(integrations.zpl_list('printer')[0]['id'],'p1')
 
-    def test_print_requires_confirmation_before_network(self):
-        with patch.object(integrations,'api') as api, self.assertRaises(ValueError):
-            integrations.zpl_print({'printer':'p1','label':'l1'})
-        api.assert_not_called()
+    def test_print_runs_without_confirmation_and_sends_one_request(self):
+        def listing(kind): return [{'id':'p1' if kind=='printer' else 'l1'}]
+        with patch.object(integrations,'zpl_list',side_effect=listing), patch.object(integrations,'api',return_value={'success':True}) as api:
+            result=integrations.zpl_print({'printer':'p1','label':'l1','data':{'text':'TESTE'}})
+        self.assertIn('message',result)
+        api.assert_called_once_with('FLEURY_ZPL_REST_URL','/rest/print','POST',
+                                   {'printer':'p1','label':'l1','data':{'text':'TESTE'}})
 
     def test_print_validates_ids_and_rejects_zpl_injection(self):
         def listing(kind): return [{'id':'p1' if kind=='printer' else 'l1'}]
         with patch.object(integrations,'zpl_list',side_effect=listing), patch.object(integrations,'api') as api:
             for data in ({'text':'^XZ^JUS'}, {'text':'hello\nworld'}, [], {'x': {'nested':'bad'}}):
                 with self.assertRaises(ValueError):
-                    integrations.zpl_print({'confirm':True,'printer':'p1','label':'l1','data':data})
+                    integrations.zpl_print({'printer':'p1','label':'l1','data':data})
             with self.assertRaises(ValueError):
-                integrations.zpl_print({'confirm':True,'printer':'other','label':'l1'})
+                integrations.zpl_print({'printer':'other','label':'l1'})
             api.assert_not_called()
             api.return_value={'success':True}
-            integrations.zpl_print({'confirm':True,'printer':'p1','label':'l1','data':{'text':'TESTE'}})
+            integrations.zpl_print({'printer':'p1','label':'l1','data':{'text':'TESTE'}})
             self.assertEqual(api.call_args.args[1:3],('/rest/print','POST'))
             self.assertEqual(api.call_args.args[3]['data'],{'text':'TESTE'})
 
@@ -85,7 +88,7 @@ class IntegrationTests(unittest.TestCase):
     def test_routes_audit_success_and_failure_without_label_contents(self):
         handler=object.__new__(app.Handler)
         handler.send=MagicMock()
-        body={'confirm':True,'printer':'p1','label':'l1','data':{'text':'PRIVATE'}}
+        body={'printer':'p1','label':'l1','data':{'text':'PRIVATE'}}
         with patch.object(app.integrations,'zpl_print',return_value={'message':'sent'}), patch.object(app,'audit') as audit:
             handler.handle_post('/api/zebra/print',body)
             self.assertTrue(audit.call_args.args[2])

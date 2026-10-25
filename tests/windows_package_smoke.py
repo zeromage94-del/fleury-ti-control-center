@@ -48,7 +48,7 @@ def smoke(exe, data, env):
         api('machines/add',{'target':'PC-PACKAGE-SIM','name':'Ficticio CI'})
         assert any(x['target']=='PC-PACKAGE-SIM' for x in api('machines'))
         with urlopen(base+'/static/mark.png',timeout=5) as response: assert response.read().startswith(b'\x89PNG')
-        api('system/shutdown',{'confirm':True})
+        api('system/shutdown',{})
         assert process.wait(timeout=15)==0
         assert (data/'fleury_ti.db').is_file(), str(data)
     finally:

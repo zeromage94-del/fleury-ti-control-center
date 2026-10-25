@@ -46,7 +46,7 @@ class SimulatedOperations(unittest.TestCase):
 
     def post(self, path, **body):
         self.h.send.reset_mock()
-        self.h.handle_post(path, {'target':'PC-SIM', 'confirm':True, **body})
+        self.h.handle_post(path, {'target':'PC-SIM', **body})
         call = self.h.send.call_args
         return call.kwargs.get('obj', call.args[1] if len(call.args)>1 else {}) if call else {}
 
@@ -78,7 +78,7 @@ class SimulatedOperations(unittest.TestCase):
                     self.assertEqual(row['success'], int(not failed))
                     self.assertEqual(row['target'], 'PC-SIM')
 
-    def test_remote_mutation_routes_success_failure_and_confirmation(self):
+    def test_remote_mutation_routes_run_directly_and_report_actual_failure(self):
         routes = [('/api/maintenance/flush-dns',{}),
             ('/api/maintenance/disk-service',{'service':'SysMain'}),
             ('/api/maintenance/tef-restart',{'service':'SiTef'}),
@@ -93,8 +93,6 @@ class SimulatedOperations(unittest.TestCase):
                       {'SpoolerAntes':'Stopped','Spooler':'Running'} if route == '/api/admin/spooler'
                       else {'Codigo':0})
             with self.subTest(route=route,body=body), patch.object(app,'remote_script',return_value=result) as remote:
-                with self.assertRaises(ValueError): self.post(route,confirm=False,**body)
-                remote.assert_not_called()
                 self.assertTrue(self.post(route,**body)['ok'])
                 self.assertEqual(remote.call_args.args[0], 'PC-SIM')
                 remote.side_effect=RuntimeError('SIM denied')
@@ -123,7 +121,6 @@ class SimulatedOperations(unittest.TestCase):
     def test_restart_uses_selected_computer_and_blocks_printer(self):
         with patch.object(app,'ps_json',return_value={'Mensagem':'Reinício solicitado'}) as ps:
             with self.assertRaises(ValueError): self.post('/api/admin/restart',target='PRN-SIM')
-            with self.assertRaises(ValueError): self.post('/api/admin/restart',confirm=False)
             ps.assert_not_called()
             self.assertTrue(self.post('/api/admin/restart')['ok'])
             self.assertIn(base64.b64encode(b'PC-SIM').decode(),ps.call_args.args[0])
@@ -189,8 +186,6 @@ class SimulatedOperations(unittest.TestCase):
 
     def test_original_winutil_simulated_launch(self):
         with patch.object(app.integrations,'launch_winutil',return_value={'message':'SIM local'}) as launch:
-            with self.assertRaises(ValueError): self.post('/api/winutil/launch',confirm=False)
-            launch.assert_not_called()
             self.assertTrue(self.post('/api/winutil/launch')['ok'])
             self.assertEqual(app.rows('SELECT target FROM audit ORDER BY id DESC LIMIT 1')[0]['target'],'Estação local')
             launch.side_effect=RuntimeError('SIM policy blocked')
@@ -203,6 +198,17 @@ class SimulatedOperations(unittest.TestCase):
                 self.assertEqual(self.h.send.call_args.args[0],202)
                 self.assertEqual(out['scope'],'machine')
                 submit.assert_called_once_with('PC-SIM',operation,['7zip'],['7zip.7zip'])
+
+    def test_driver_change_runs_directly_and_checks_target_and_result(self):
+        with patch.object(app.printer_support,'switch_driver',return_value={'ok':True,'DriverAtual':'SIM'}) as change:
+            with self.assertRaises(ValueError):
+                self.post('/api/printers/drivers/change',target='PRN-SIM',printer='Zebra',driver='reviewed')
+            change.assert_not_called()
+            self.assertTrue(self.post('/api/printers/drivers/change',printer='Zebra',driver='reviewed')['ok'])
+            change.assert_called_once_with(app.remote_script,'PC-SIM','Zebra','reviewed')
+            change.return_value={'ok':False,'partial':True,'DriverAtual':'Anterior'}
+            self.assertFalse(self.post('/api/printers/drivers/change',printer='Zebra',driver='reviewed')['ok'])
+            self.assertEqual(app.rows('SELECT success FROM audit ORDER BY id DESC LIMIT 1')[0]['success'],0)
 
     def test_machine_registration_classification_and_shutdown(self):
         self.post('/api/machines/add',target='PC-SECOND',name='Segundo ficticio')

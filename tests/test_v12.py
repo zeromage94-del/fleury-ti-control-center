@@ -36,7 +36,7 @@ class V12Tests(unittest.TestCase):
             httpd.shutdown()
             httpd.server_close()
 
-    def test_new_routes_reject_unknown_scripts_and_system_outside_windows(self):
+    def test_unknown_script_is_rejected_and_local_shutdown_runs_directly(self):
         app.initialize()
         httpd=app.ThreadingHTTPServer(('127.0.0.1', 0), app.Handler)
         port=httpd.server_port
@@ -48,8 +48,8 @@ class V12Tests(unittest.TestCase):
             c.request('GET','/api/diagnostics/remote-console?target=192.168.0.10&type=bad',headers=headers)
             r=c.getresponse();d=json.loads(r.read());self.assertEqual(r.status,400);self.assertIn('não permitida',d['error'])
             headers['Content-Type']='application/json'
-            c.request('POST','/api/system/shutdown',body=json.dumps({'confirm':False}),headers=headers)
-            r=c.getresponse();r.read();self.assertEqual(r.status,400)
+            c.request('POST','/api/system/shutdown',body=json.dumps({}),headers=headers)
+            r=c.getresponse();r.read();self.assertEqual(r.status,200)
             c.close()
         finally:
             httpd.shutdown()

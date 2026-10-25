@@ -452,7 +452,7 @@ def restart_spooler(target):
 def restart_machine(target):
     require_computer(target)
     return ps_json('$t=' + ps_literal(target) + '; '
-                   + 'Restart-Computer -ComputerName $t -Force -ErrorAction Stop; '
+                   + 'Restart-Computer -ComputerName $t -Force -Confirm:$false -ErrorAction Stop; '
                    + '[PSCustomObject]@{ Mensagem="Reinício solicitado" } | ConvertTo-Json -Compress', timeout=40)
 
 
@@ -715,7 +715,7 @@ def sync_zammad():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'FleuryTI/1.4.2'
+    server_version = 'FleuryTI/1.4.3'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/'):
@@ -981,8 +981,6 @@ class Handler(BaseHTTPRequestHandler):
             require_computer(target)
             if not WIN:
                 raise RuntimeError('A troca de driver requer Windows e WinRM.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirme a troca do driver na impressora selecionada.')
             try:
                 result = printer_support.switch_driver(remote_script, target, b.get('printer'), b.get('driver'))
                 success = result.get('ok') is True
@@ -994,8 +992,6 @@ class Handler(BaseHTTPRequestHandler):
                 audit('Trocar driver Zebra', target, False, 'Falha na troca; confira configuração e permissões.')
                 raise
         if path in ('/api/zebra/print', '/api/winutil/launch'):
-            if b.get('confirm') is not True:
-                raise ValueError('Confirmação explícita obrigatória.')
             action = 'Imprimir Zebra' if path.endswith('/print') else 'Abrir WinUtil local'
             destination = str(b.get('printer', ''))[:100] if path.endswith('/print') else 'Estação local'
             try:
@@ -1006,8 +1002,6 @@ class Handler(BaseHTTPRequestHandler):
                 audit(action, destination, False, str(exc))
                 raise
         if path == '/api/system/shutdown':
-            if b.get('confirm') is not True:
-                raise ValueError('Confirme o encerramento do aplicativo.')
             audit('Encerrar aplicativo local', '', True)
             self.send(obj={'ok': True, 'message': 'Encerrando o servidor local.'})
             threading.Thread(target=self.server.shutdown, daemon=True).start()
@@ -1017,8 +1011,6 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/assets/upload':
             return self.send(obj=add_image(target, b))
         if path == '/api/assets/delete-image':
-            if b.get('confirm') is not True:
-                raise ValueError('Confirme a exclusão da imagem.')
             return self.send(obj=remove_image(target, int(b.get('id') or 0)))
         if path == '/api/tickets/category':
             category = b.get('category')
@@ -1075,8 +1067,6 @@ class Handler(BaseHTTPRequestHandler):
             validate_target(target, registered=True)
             if not WIN:
                 raise RuntimeError('A criação de pontos de restauração requer Windows.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirme a criação do ponto de restauração.')
             description = maintenance.validate_restore_desc(b.get('description'))
             try:
                 result = create_restore_point(target, description)
@@ -1090,8 +1080,6 @@ class Handler(BaseHTTPRequestHandler):
             validate_target(target, registered=True)
             if not WIN:
                 raise RuntimeError('A exclusão de pontos de restauração requer Windows.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirmação explícita obrigatória.')
             sequence = maintenance.validate_restore_sequence(b.get('sequence'))
             preview = self.server.restore_previews.get(target)
             if not preview or time.monotonic() - preview[0] > 600 or sequence not in preview[1]:
@@ -1108,9 +1096,7 @@ class Handler(BaseHTTPRequestHandler):
             validate_target(target, registered=True)
             if not WIN:
                 raise RuntimeError('Ação disponível apenas no Windows.')
-            # Sem etapa de simulação, mas sempre com confirmação explícita do técnico.
-            if b.get('confirm') is not True:
-                raise ValueError('Confirme a manutenção no computador selecionado.')
+            # O clique do técnico autoriza a manutenção predefinida, sem confirmação adicional.
             days = maintenance.validate_days(b.get('days', 14))
             quick = path.endswith('quick-optimize')
             label = 'Otimização rápida (TEMP)' if quick else 'Limpeza direta de TEMP'
@@ -1147,8 +1133,6 @@ class Handler(BaseHTTPRequestHandler):
             validate_target(target, registered=True)
             if not WIN:
                 raise RuntimeError('Requer Windows com WinRM.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirmação explícita obrigatória.')
             try:
                 result = maintenance.call(remote_script, target, maintenance.FLUSH_DNS_PS, timeout=70)
                 audit('Limpar cache DNS', target, True)
@@ -1160,8 +1144,6 @@ class Handler(BaseHTTPRequestHandler):
             validate_target(target, registered=True)
             if not WIN:
                 raise RuntimeError('Requer Windows.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirmação explícita necessária para reiniciar serviço.')
             service = maintenance.validate_disk_service(b.get('service'))
             try:
                 result = restart_disk_service(target, service)
@@ -1174,8 +1156,6 @@ class Handler(BaseHTTPRequestHandler):
             validate_target(target, registered=True)
             if not WIN:
                 raise RuntimeError('Requer Windows.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirmação explícita obrigatória.')
             tool = str(b.get('tool') or '')
             if tool not in ('dism-check', 'dism-repair', 'chkdsk-scan', 'sfc-scan'):
                 raise ValueError('Ferramenta não permitida.')
@@ -1190,8 +1170,6 @@ class Handler(BaseHTTPRequestHandler):
                 raise
         if path == '/api/maintenance/tef-restart':
             validate_target(target, registered=True)
-            if b.get('confirm') is not True:
-                raise ValueError('Confirme que não existem transações de pagamento em andamento.')
             if not WIN:
                 raise RuntimeError('Requer Windows.')
             try:
@@ -1245,8 +1223,6 @@ class Handler(BaseHTTPRequestHandler):
                   '/api/admin/spooler':'Reiniciar serviço Spooler'}
         if path in remote:
             require_computer(target)
-            if path in ('/api/admin/restart', '/api/admin/clear-print', '/api/admin/spooler') and b.get('confirm') is not True:
-                raise ValueError('Confirmação explícita obrigatória.')
             if not WIN:
                 raise RuntimeError('Ação disponível apenas no Windows.')
             action = remote[path]
@@ -1287,7 +1263,7 @@ def main():
     server.restore_previews = {}
     url = f'http://127.0.0.1:{port}/'
     print('==============================================')
-    print(' FLEURY TI CONTROL CENTER - versão 1.4.2')
+    print(' FLEURY TI CONTROL CENTER - versão 1.4.3')
     print(' Local:', url)
     print(' Usuário:', metrics()['username'])
     print(' Windows:', WIN)

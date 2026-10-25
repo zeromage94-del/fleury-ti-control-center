@@ -37,10 +37,10 @@ render=function(){
 };
 const prevVideoAct=act;
 act=async function(action,data={}){
- if(action==='stop-app')return showModal({title:'Encerrar o Fleury TI Control Center?',desc:'O servidor local será desligado. Para voltar, abra o programa novamente.',actionText:'Encerrar aplicativo',danger:true,onConfirm:async()=>{
-  await request('system/shutdown',{confirm:true});
+ if(action==='stop-app')return busyCall(async()=>{
+  await request('system/shutdown',{});
   toast('Aplicativo encerrado. Já pode fechar o navegador.');
- }});
+ },'');
  if(action==='remote-readonly'){
   const m=currentMachine();if(!m)return;
   const type=data.type||'';

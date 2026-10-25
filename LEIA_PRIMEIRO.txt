@@ -1,4 +1,4 @@
-Fleury TI Control Center v1.4.2 - Distribuicao independente
+Fleury TI Control Center v1.4.3 - Distribuicao independente
 
 FORMATO PORTATIL COMPILADO NO WINDOWS
 - Extraia TODO o arquivo ZIP para uma pasta gravavel e execute FleuryTIControlCenter.exe.

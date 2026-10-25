@@ -89,20 +89,21 @@ class WebHandlerTests(unittest.TestCase):
             status, obj = self.send('/api/maintenance/restore-points?target=PC-TESTE-01')
             self.assertEqual(status, 200)
             self.assertEqual(len(obj['result']['Pontos']), 2)
-            _, out=self.send('/api/maintenance/restore-delete', {'target':'PC-TESTE-01','sequence':12,'confirm':True})
+            _, out=self.send('/api/maintenance/restore-delete', {'target':'PC-TESTE-01','sequence':12})
             self.assertTrue(out['result']['Removido'])
             del_mock.assert_called_once_with('PC-TESTE-01',12)
             # Não repetir exclusão com prévia expirada/consumida.
             with self.assertRaises(HTTPError) as err:
-                self.send('/api/maintenance/restore-delete', {'target':'PC-TESTE-01','sequence':12,'confirm':True})
+                self.send('/api/maintenance/restore-delete', {'target':'PC-TESTE-01','sequence':12})
             self.assertEqual(err.exception.code,400)
 
-    def test_create_requires_confirm(self):
-        with patch.object(app, 'create_restore_point') as create_mock:
-            with self.assertRaises(HTTPError) as err:
-                self.send('/api/maintenance/restore-create', {'target':'PC-TESTE-01','description':'Manutencao valida'})
-            self.assertEqual(err.exception.code,400)
-            create_mock.assert_not_called()
+    def test_restore_create_executes_without_confirmation(self):
+        with patch.object(app,'create_restore_point',return_value={'Criado':True,'Numero':42}) as create:
+            status,result=self.send('/api/maintenance/restore-create',
+                {'target':'PC-TESTE-01','description':'Manutencao valida'})
+        self.assertEqual(status,200)
+        self.assertTrue(result['ok'])
+        create.assert_called_once_with('PC-TESTE-01','Manutencao valida')
 
     def test_quick_script_avoids_unsafe_tweaks(self):
         self.assertIn("$cleanup = & {", maintenance.QUICK_OPTIMIZE_PS)
@@ -115,22 +116,22 @@ class WebHandlerTests(unittest.TestCase):
         with patch.object(app, 'cleanup_temps', return_value={
             'ArquivosRemovidos':5, 'LiberadosMB':2.5, 'Falhas':0}) as cleanup:
             _, result = self.send('/api/maintenance/cleanup', {
-                'target':'PC-TESTE-01','days':14,'confirm':True})
+                'target':'PC-TESTE-01','days':14})
             self.assertEqual(result['result']['ArquivosRemovidos'], 5)
             cleanup.assert_called_once_with('PC-TESTE-01', 14, True)
 
-    def test_cleanup_rejects_without_technician_confirmation(self):
-        with patch.object(app, 'cleanup_temps') as cleanup:
-            with self.assertRaises(HTTPError) as err:
-                self.send('/api/maintenance/cleanup', {'target':'PC-TESTE-01','days':14})
-            self.assertEqual(err.exception.code,400)
-            cleanup.assert_not_called()
+    def test_cleanup_executes_without_confirmation(self):
+        with patch.object(app,'cleanup_temps',return_value={'Falhas':0,'ArquivosRemovidos':2}) as cleanup:
+            status,result=self.send('/api/maintenance/cleanup',{'target':'PC-TESTE-01','days':7})
+        self.assertEqual(status,200)
+        self.assertTrue(result['ok'])
+        cleanup.assert_called_once_with('PC-TESTE-01',7,True)
 
     def test_quick_optimize_uses_selected_machine(self):
         result={'Limpeza':{'ArquivosRemovidos':1,'LiberadosMB':1.2,'Falhas':0}}
         with patch.object(app.maintenance, 'call', return_value=result) as call:
             _, data=self.send('/api/maintenance/quick-optimize', {
-                'target':'PC-TESTE-01','days':14,'confirm':True})
+                'target':'PC-TESTE-01','days':14})
             self.assertEqual(data['result'], result)
             self.assertEqual(call.call_args.args[1], 'PC-TESTE-01')
             self.assertEqual(call.call_args.args[2], maintenance.QUICK_OPTIMIZE_PS)
@@ -140,7 +141,7 @@ class WebHandlerTests(unittest.TestCase):
         with patch.object(app, 'cleanup_temps') as cleanup:
             with self.assertRaises(HTTPError) as err:
                 self.send('/api/maintenance/cleanup', {
-                    'target':'PC-OUTRO-01','days':14,'confirm':True})
+                    'target':'PC-OUTRO-01','days':14})
             self.assertEqual(err.exception.code, 400)
             cleanup.assert_not_called()
 

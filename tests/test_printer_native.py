@@ -28,7 +28,8 @@ function Get-PrintJob {
  @($p.jobs | ForEach-Object {[PSCustomObject]@{ID=$_;JobStatus='Error'}})
 }
 function Remove-PrintJob {
- [CmdletBinding()]param($PrinterName,$ID)
+ [CmdletBinding(SupportsShouldProcess=$true)]param($PrinterName,$ID)
+ if(-not $PSBoundParameters.ContainsKey('Confirm') -or [bool]$PSBoundParameters['Confirm']){throw 'SIM: confirmation suppression missing'}
  $p=Get-Printer -Name $PrinterName
  if($script:lab.blocked -eq $ID){throw 'SIM locked job'}
  $p.jobs=@($p.jobs | Where-Object {$_ -ne $ID})
@@ -55,7 +56,8 @@ function Get-PrinterDriver {
  [PSCustomObject]@{Name=$Name}
 }
 function Set-Printer {
- [CmdletBinding()]param($Name,$DriverName)
+ [CmdletBinding(SupportsShouldProcess=$true)]param($Name,$DriverName)
+ if(-not $PSBoundParameters.ContainsKey('Confirm') -or [bool]$PSBoundParameters['Confirm']){throw 'SIM: confirmation suppression missing'}
  $p=Get-Printer -Name $Name
  if(-not $script:lab.reject_change){$p.DriverName=$DriverName}
 }

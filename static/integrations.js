@@ -15,7 +15,7 @@ function printerDriverPanel(){
  <p>Catálogo local revisado pela TI para os modelos que ela administra. Os drivers não são baixados ou executados automaticamente. ${official?`<a href="${esc(official)}" target="_blank" rel="noopener noreferrer">Drivers oficiais Zebra</a>`:''}</p>
  <div class="toolbar-group"><button class="btn" data-act="drivers-catalog">Carregar repositório</button><button class="btn" data-act="drivers-installed" ${!m||deviceType(m)!=='computer'?'disabled':''}>Consultar drivers e impressoras do computador</button></div>
  ${catalog?`<p class="hint">${esc(catalog.note||'A troca usa apenas um driver revisado já instalado no computador selecionado.')}</p>${packages.length?`<div class="table-scroll"><table><thead><tr><th>Pacote</th><th>Modelos</th><th>Driver / versão</th><th>Validação local</th></tr></thead><tbody>${packages.map(p=>`<tr><td>${esc(p.title||p.id)}</td><td>${esc((p.models||[]).join(', '))}</td><td>${esc(p.driver_name)}<br>${esc(p.version||'Versão não informada')}</td><td>${p.package_present&&p.verified?'INF local verificado':'Referência revisada para driver já instalado'}</td></tr>`).join('')}</tbody></table></div>`:'<p>Nenhum pacote revisado cadastrado. Cadastre somente drivers oficiais compatíveis com seus modelos.</p>'}`:''}
- ${inventory?`<p><strong>Computador:</strong> ${esc(inventory.target)}</p><p class="hint">A troca altera a fila Windows desta estação. Não corrige cabo, sensor, cabeça de impressão ou mídia. Compare modelo, DPI e linguagem antes de confirmar.</p>
+ ${inventory?`<p><strong>Computador:</strong> ${esc(inventory.target)}</p><p class="hint">A troca altera a fila Windows desta estação. Não corrige cabo, sensor, cabeça de impressão ou mídia. Compare modelo, DPI e linguagem antes da troca.</p>
  <p><label>Impressora Zebra <select class="select" id="driver-printer"><option value="">Selecione a impressora...</option>${printers.map(p=>`<option value="${esc(p.Name)}" ${p.Name===S.driverPrinter?'selected':''}>${esc(p.Name)} · ${esc(p.DriverName)}</option>`).join('')}</select></label></p>
  <p><label>Driver revisado já instalado <select class="select" id="driver-package"><option value="">Selecione o pacote compatível...</option>${eligible.map(p=>`<option value="${esc(p.id)}" ${p.id===S.driverPackage?'selected':''}>${esc(p.title||p.id)} · ${esc(p.driver_name)} · ${esc((p.models||[]).join(', '))}</option>`).join('')}</select></label></p>
  ${!eligible.length?'<p class="hint">Nenhum driver do catálogo foi encontrado entre os instalados. A TI precisa instalar um pacote oficial revisado na estação antes da troca.</p>':''}
@@ -73,23 +73,21 @@ act=async function(action,data={}){
   if(!m||inventory?.target!==m.target)return toast('Consulte os drivers do computador selecionado primeiro.',true);
   const printer=inventory.printers.find(p=>p.Name===S.driverPrinter),pack=S.driverCatalog?.packages.find(p=>p.id===S.driverPackage);
   if(!printer||!pack||pack.reviewed!==true||!inventory.drivers.some(d=>d.Name.toLowerCase()===pack.driver_name.toLowerCase()))return toast('Selecione uma fila Zebra e um driver revisado já instalado.',true);
-  return showModal({title:'Trocar driver da fila Zebra?',danger:true,
-   desc:`Computador ${m.target}; fila ${printer.Name}; driver atual ${printer.DriverName}; novo ${pack.driver_name}. Modelos: ${(pack.models||[]).join(', ')}. Confirme modelo, DPI e linguagem; a troca pode interromper impressão e não corrige defeitos físicos.`,actionText:'Confirmar troca de driver',onConfirm:async()=>{
-    if(S.selected!==m.target||S.driverInventory!==inventory)throw Error('O computador ou a consulta mudou. Consulte novamente.');
-    const d=await request('printers/drivers/change',{target:m.target,printer:printer.Name,driver:pack.id,confirm:true});
-    S.printerActionResult={target:m.target,...d};S.driverInventory=null;S.driverPackage='';S.driverPrinter='';render();toast(d.message||'Confira o resultado da troca do driver.',d.ok===false);
-   }});
+  return busyCall(async()=>{
+   if(S.selected!==m.target||S.driverInventory!==inventory)throw Error('O computador ou a consulta mudou. Consulte novamente.');
+   const d=await request('printers/drivers/change',{target:m.target,printer:printer.Name,driver:pack.id});
+   S.printerActionResult={target:m.target,...d};S.driverInventory=null;S.driverPackage='';S.driverPrinter='';render();toast(d.message||'Confira o resultado da troca do driver.',d.ok===false);
+  },'');
  }
  if(action==='spooler'||action==='clear-print'){
   const m=currentMachine();if(!m)return;
   const printer=data.printer,clearing=action==='clear-print';
   if(clearing&&!printer)return toast('Selecione uma impressora para limpar a fila.',true);
-  return showModal({title:clearing?'Descartar documentos da fila?':'Reiniciar o Spooler?',danger:true,
-   desc:clearing?`Todos os trabalhos pendentes da impressora "${printer}" em ${m.target} serão removidos. Outras filas serão preservadas.`:`O serviço de impressão de ${m.target} será reiniciado e poderá interromper todas as impressoras desse computador.`,actionText:'Confirmar operação',onConfirm:async()=>{
-    const d=await request(clearing?'admin/clear-print':'admin/spooler',{target:m.target,printer,confirm:true});
-    S.printerActionResult={target:m.target,...d};render();toast(d.message||'Confira o resultado da manutenção de impressão.',d.ok===false);
-    try{const list=await request('admin/printers?target='+encodeURIComponent(m.target));S.printers={target:m.target,data:list.result};render();}catch(e){toast('Operação retornou resultado, mas a nova consulta falhou: '+e.message,true);}
-   }});
+  return busyCall(async()=>{
+   const d=await request(clearing?'admin/clear-print':'admin/spooler',{target:m.target,printer});
+   S.printerActionResult={target:m.target,...d};render();toast(d.message||'Confira o resultado da manutenção de impressão.',d.ok===false);
+   try{const list=await request('admin/printers?target='+encodeURIComponent(m.target));S.printers={target:m.target,data:list.result};render();}catch(e){toast('Operação retornou resultado, mas a nova consulta falhou: '+e.message,true);}
+  },'');
  }
  if(action==='zebra-load')return busyCall(async()=>{const d=await request('zebra/catalog');S.integrationCatalog=d.result;render();},'Catálogo Zebra carregado.');
  if(action==='scripts-load')return busyCall(async()=>{S.adminScripts=await request('scripts/catalog');render();},'');
@@ -102,9 +100,9 @@ act=async function(action,data={}){
   let variables;try{variables=JSON.parse(document.querySelector('#zebra-data').value);}catch{toast('Informe JSON válido.',true);return;}
   const p=S.integrationCatalog.printers.find(x=>x.id===printer),l=S.integrationCatalog.labels.find(x=>x.id===label);
   if(!p||!l)return toast('Selecione impressora e modelo.',true);
-  return showModal({title:'Imprimir etiqueta Zebra?',desc:`Destino: ${p.name} (${p.address}). Modelo: ${l.name}. Será enviado ao servidor ZPL configurado. Confira as variáveis e a impressora antes de confirmar.`,actionText:'Confirmar impressão',onConfirm:async()=>{const d=await request('zebra/print',{printer,label,data:variables,confirm:true});toast(d.result.message);}});
+  return busyCall(async()=>{const d=await request('zebra/print',{printer,label,data:variables});toast(d.result.message);},'');
  }
- if(action==='winutil-launch')return showModal({title:'Abrir WinUtil na estação local?',desc:'Abre a cópia revisada na estação deste técnico, em uma janela separada. As operações dentro do WinUtil não são registradas pelo Fleury. Não executa na máquina selecionada no topo.',actionText:'Abrir cópia revisada',onConfirm:async()=>{const d=await request('winutil/launch',{confirm:true});toast(d.result.message);}});
+ if(action==='winutil-launch')return busyCall(async()=>{const d=await request('winutil/launch',{});toast(d.result.message);},'');
  return previousIntegrationAct(action,data);
 };
 const previousIntegrationWinutil=winutil;

@@ -35,7 +35,7 @@ function showMachinePopup(target,xy){
  <button role="menuitem" data-mini-action="quick-optimize">${ico('bolt')}<span>Otimizar agora<small>Limpar temporários antigos</small></span></button>
  <button role="menuitem" data-mini-action="cleanup-run">${ico('refresh')}<span>Limpar temporários<small>Todos os perfis locais</small></span></button>
  <button role="menuitem" data-mini-action="guided-disk">${ico('monitor')}<span>HD em 100%<small>Diagnóstico orientado</small></span></button>
- <button role="menuitem" data-mini-action="restart">${ico('power')}<span>Reiniciar computador<small>Confirmação obrigatória</small></span></button>
+ <button role="menuitem" data-mini-action="restart">${ico('power')}<span>Reiniciar computador<small>Execução direta</small></span></button>
  <button role="menuitem" data-mini-action="rdp">${ico('monitor')}<span>Acesso remoto (RDP)<small>Com credenciais autorizadas</small></span></button>
  <button role="menuitem" data-mini-action="inventory">${ico('list')}<span>Consultar inventário<small>Windows e hardware</small></span></button>
  <button role="menuitem" data-mini-action="software-page">${ico('download')}<span>Instalar programas<small>Catálogo de softwares</small></span></button>

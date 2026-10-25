@@ -162,7 +162,7 @@ if(-not [string]::Equals([string]$p.Name,$name,[StringComparison]::OrdinalIgnore
 $jobs=@(Get-PrintJob -PrinterName $p.Name -ErrorAction Stop)
 $removed=0; $failed=0
 foreach($job in $jobs){
- try{Remove-PrintJob -PrinterName $p.Name -ID $job.ID -ErrorAction Stop;$removed++}catch{$failed++}
+ try{Remove-PrintJob -PrinterName $p.Name -ID $job.ID -Confirm:$false -ErrorAction Stop;$removed++}catch{$failed++}
 }
 $remaining=@(Get-PrintJob -PrinterName $p.Name -ErrorAction Stop)
 [PSCustomObject]@{Impressora=$p.Name;Encontrados=$jobs.Count;Removidos=$removed;
@@ -174,7 +174,7 @@ RESTART_SPOOLER_PS = r'''param($json)
 $ErrorActionPreference='Stop'
 $service=Get-Service Spooler -ErrorAction Stop
 $before=$service.Status.ToString()
-Restart-Service -InputObject $service -Force -ErrorAction Stop
+Restart-Service -InputObject $service -Force -Confirm:$false -ErrorAction Stop
 $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromSeconds(20))
 $service.Refresh()
 [PSCustomObject]@{SpoolerAntes=$before;Spooler=$service.Status.ToString()}
@@ -207,7 +207,7 @@ if(-not [string]::Equals([string]$driver.Name,$new,[StringComparison]::OrdinalIg
 if((Get-Service Spooler -ErrorAction Stop).Status -ne 'Running'){throw 'Spooler não está em execução.'}
 if(@(Get-PrintJob -PrinterName $p.Name -ErrorAction Stop).Count -gt 0){throw 'Fila contém trabalhos. Trate a fila antes de trocar o driver.'}
 $before=[string]$p.DriverName
-Set-Printer -Name $p.Name -DriverName $driver.Name -ErrorAction Stop
+Set-Printer -Name $p.Name -DriverName $driver.Name -Confirm:$false -ErrorAction Stop
 $after=Get-Printer -Name $p.Name -ErrorAction Stop
 [PSCustomObject]@{Impressora=$p.Name;DriverAnterior=$before;DriverAtual=[string]$after.DriverName}
 '''

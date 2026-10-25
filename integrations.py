@@ -72,8 +72,6 @@ def zpl_list(kind):
 
 
 def zpl_print(body):
-    if body.get('confirm') is not True:
-        raise ValueError('Confirme a impressão na Zebra selecionada.')
     printer, label = body.get('printer'), body.get('label')
     if not isinstance(printer, str) or not isinstance(label, str):
         raise ValueError('Selecione impressora e modelo cadastrados no zpl-rest.')

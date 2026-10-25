@@ -76,10 +76,53 @@ console.log(`${scripts.length} scripts carregados; todas as páginas renderizada
   S.driverPrinter='Zebra ZD421';S.driverPackage='zd';render();
   if(!main.innerHTML.includes('ZDesigner ZD421'))throw Error('Driver installed-only revisado não aparece');
   await act('driver-change');
-  if(!modal||requests.some(x=>x.path==='printers/drivers/change'))throw Error('Troca sem confirmação ou modal ausente');
-  await modal.onConfirm();
+  if(modal)throw Error('Troca de driver abriu confirmação');
   const change=requests.find(x=>x.path==='printers/drivers/change');
-  if(change.body.driver!=='zd'||change.body.target!=='PC-TESTE')throw Error('Troca enviou driver/alvo errado');
+  if(!change||change.body.driver!=='zd'||change.body.target!=='PC-TESTE'||'confirm' in change.body)throw Error('Troca não executou diretamente para o driver/alvo escolhido');
+  showModal=()=>{throw Error('Comando abriu pedido de autorização');};
+  refresh=async()=>{};loadAsset=async()=>{};
+  document.querySelector('#tef-service-name').value='SiTef';
+  document.querySelector('#zebra-printer').value='p1';
+  document.querySelector('#zebra-label').value='l1';
+  document.querySelector('#zebra-data').value='{}';
+  request=async(path,body)=>{
+   requests.push({path,body});
+   if(path==='software/jobs')return [];
+   if(path.startsWith('maintenance/restore-points'))return {ok:true,result:{Pontos:[{Numero:12,Descricao:'SIM antigo',IdadeDias:45,MaisRecente:false}]}};
+   if(path.startsWith('admin/printers'))return {ok:true,result:[]};
+   return {ok:true,message:'SIM',result:{message:'SIM',Codigo:0,Removido:true},job_id:'SIM'};
+  };
+  const direct=[
+   ['asset-delete',{id:'42'},'assets/delete-image'],
+   ['restore-create',{},'maintenance/restore-create'],
+   ['restore-delete',{sequence:'12'},'maintenance/restore-delete'],
+   ['cleanup-run',{},'maintenance/cleanup'],
+   ['quick-optimize',{},'maintenance/quick-optimize'],
+   ['disk-service',{service:'SysMain'},'maintenance/disk-service'],
+   ['disk-tool',{tool:'sfc-scan'},'maintenance/disk-tool'],
+   ['tef-service',{},'maintenance/tef-restart'],
+   ['quick-flush-dns',{},'maintenance/flush-dns'],
+   ['restart',{},'admin/restart'],
+   ['rdp',{},'admin/rdp'],
+   ['terminal',{},'admin/terminal'],
+   ['spooler',{},'admin/spooler'],
+   ['clear-print',{printer:'Zebra SIM'},'admin/clear-print'],
+   ['zebra-print',{},'zebra/print'],
+   ['winutil-launch',{},'winutil/launch'],
+   ['software-install',{},'software/install'],
+   ['software-uninstall',{},'software/uninstall'],
+   ['stop-app',{},'system/shutdown']
+  ];
+  S.softwareSelected=new Set(['7zip']);
+  for(const [action,data,path] of direct){
+   const start=requests.length;
+   await act(action,data);
+   const posts=requests.slice(start).filter(x=>x.path===path);
+   if(posts.length!==1||!posts[0].body||'confirm' in posts[0].body)throw Error('Comando não executou em um clique: '+action);
+   if(path.startsWith('admin/')||path.startsWith('maintenance/')){
+    if(posts[0].body.target!=='PC-TESTE')throw Error('Comando enviou alvo errado: '+action);
+   }
+  }
  })()`,context);
- console.log('Catálogo, Downloads integral em um clique sem prévia/seleção, resultado parcial e driver revisado aprovados.');
+ console.log('Downloads, driver e 19 comandos executados por clique sem autorização adicional; alvos e resultados verificados.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

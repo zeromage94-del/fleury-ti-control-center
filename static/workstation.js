@@ -77,7 +77,7 @@ function software(){
  <button class="btn primary sw-action-btn" data-act="software-install" ${!machine||!S.softwareSelected.size?'disabled':''}>${ico('download')} Instalar selecionados</button>
  <button class="btn sw-uninstall-btn sw-action-btn" data-act="software-uninstall" ${!machine||!S.softwareSelected.size?'disabled':''}>${ico('upload')} Desinstalar selecionados</button>
  <button class="btn sw-clear-btn" data-act="software-clear" ${!S.softwareSelected.size?'disabled':''}>Limpar seleção</button>
- <div class="sw-policy">${ico('shield')} <span>Operações auditadas e confirmadas pelo técnico. Sem bypass de bloqueios do Windows, EDR ou GPO.</span></div>
+ <div class="sw-policy">${ico('shield')} <span>Operações executadas ao clicar e auditadas. Sem bypass de bloqueios do Windows, EDR ou GPO.</span></div>
  </div>
  <div class="sw-side-note"><strong>Antes de executar</strong><p>WinGet exige contexto compatível e pode falhar via WinRM. Desinstalar <strong>remove programas</strong>, portanto não execute em softwares exigidos para o funcionamento do laboratório.</p></div>
  </aside></div>`;
@@ -132,15 +132,11 @@ act=async function(action,data={}){
   if(!keys.length)return toast('Selecione ao menos um aplicativo.',true);
   if(keys.length>5)return toast('Máximo de 5 programas por operação.',true);
   const uninstall=action==='software-uninstall';
-  const names=keys.map(k=>S.softwareCatalog.find(p=>p.key===k)?.name||k);
-  return showModal({title:uninstall?'Desinstalar aplicativos selecionados?':'Instalar aplicativos selecionados?',danger:uninstall,
-   desc:`Máquina ${m.target}. ${names.join(', ')}. ${uninstall?'A desinstalação pode interromper o trabalho e remover programas necessários à unidade; não apaga automaticamente documentos dos usuários.':'Use somente aplicativos e versões aprovados pela equipe de TI.'} A operação usa WinGet, será registrada e precisa de permissão administrativa já concedida.`,
-   actionText:uninstall?'Confirmar desinstalação':'Confirmar instalação',onConfirm:async()=>{
-    const route=uninstall?'software/uninstall':'software/install';
-    const d=await request(route,{target:m.target,packages:keys,confirm:true});
-    S.softwareResult={target:m.target,ok:!!d.ok,type:uninstall?'Desinstalação':'Instalação',result:d.result};
-    render();toast(d.ok?'Operação concluída.':'Uma ou mais operações falharam. Consulte o relatório.',!d.ok);
-   }});
+  return busyCall(async()=>{
+   const d=await request(uninstall?'software/uninstall':'software/install',{target:m.target,packages:keys});
+   S.softwareResult={target:m.target,ok:!!d.ok,type:uninstall?'Desinstalação':'Instalação',result:d.result};
+   render();toast(d.message||'Operação enviada. Acompanhe o resultado.',d.ok===false);
+  },'');
  }
  return originalSwAct(action,data);
 };

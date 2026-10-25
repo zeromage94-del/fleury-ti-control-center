@@ -300,9 +300,9 @@ if(($s.Name -notmatch 'TEF|SiTef|PayGo|PinPad|CliSiTef|VSPague|V-Pague|Cielo|Ger
  throw 'Serviço não identificado como middleware de pagamentos; ação bloqueada.'
 }
 if($s.Status -eq 'Running'){
- Restart-Service -InputObject $s -ErrorAction Stop
+ Restart-Service -InputObject $s -Confirm:$false -ErrorAction Stop
 }else{
- Start-Service -InputObject $s -ErrorAction Stop
+ Start-Service -InputObject $s -Confirm:$false -ErrorAction Stop
 }
 $s.Refresh()
 [PSCustomObject]@{Servico=$s.Name; Descricao=$s.DisplayName; StatusFinal=$s.Status.ToString(); Mensagem='Operação concluída. Validar comunicação e pagamento de teste com procedimento autorizado.'}'''
@@ -416,7 +416,7 @@ if($service -cnotin @('SysMain','WSearch')){throw 'Serviço não permitido.'}
 $s=Get-Service -Name $service -ErrorAction Stop
 $before=$s.Status.ToString()
 if($s.Status -eq 'Running'){
- Restart-Service -Name $service -ErrorAction Stop
+ Restart-Service -Name $service -Confirm:$false -ErrorAction Stop
  $action='Serviço reiniciado; inicialização original preservada'
 }else{
  $action='Nenhuma alteração: o serviço não estava em execução'
@@ -427,7 +427,7 @@ $s=Get-Service -Name $service -ErrorAction Stop
 
 DISM_CHECK_PS = r'''param($json)
 $ErrorActionPreference='Stop'
-$lines=@(& dism.exe /Online /Cleanup-Image /CheckHealth 2>&1 | Out-String)
+$lines=@(& dism.exe /Online /Cleanup-Image /CheckHealth /NoRestart 2>&1 | Out-String)
 $exit=$LASTEXITCODE
 [PSCustomObject]@{Ferramenta='DISM CheckHealth';Codigo=$exit;
  Resumo=($lines -join "`n").Trim().Substring(0,[math]::Min(2200,(($lines -join "`n").Trim()).Length));
@@ -492,7 +492,7 @@ if($old.Count -gt 0){
   throw 'Já existe ponto de restauração das últimas 24 horas. Aguarde o intervalo normal do Windows; nenhuma alteração foi feita.'
  }
 }
-Checkpoint-Computer -Description $description -RestorePointType MODIFY_SETTINGS -ErrorAction Stop
+Checkpoint-Computer -Description $description -RestorePointType MODIFY_SETTINGS -Confirm:$false -ErrorAction Stop
 $points=@(Get-ComputerRestorePoint -ErrorAction Stop | Sort-Object SequenceNumber -Descending)
 if($points.Count -eq 0){throw 'Windows não retornou ponto depois da criação; verifique a Proteção do Sistema.'}
 [PSCustomObject]@{Criado=$true;Descricao=[string]$points[0].Description;
@@ -606,13 +606,13 @@ $tcp=@(Get-NetAdapter -ErrorAction SilentlyContinue | Select-Object -First 20 Na
 
 FLUSH_DNS_PS = r'''param($json)
 $ErrorActionPreference='Stop'
-Clear-DnsClientCache -ErrorAction Stop
+Clear-DnsClientCache -Confirm:$false -ErrorAction Stop
 [PSCustomObject]@{Computador=$env:COMPUTERNAME;CacheDNS='Limpo'
  Aviso='Apenas cache resolvedor DNS. Nenhuma configuração de IP, servidores DNS ou VPN alterada.'}'''
 
 DISM_REPAIR_PS = r'''param($json)
 $ErrorActionPreference='Stop'
-$out=(& dism.exe /Online /Cleanup-Image /RestoreHealth 2>&1 | Out-String)
+$out=(& dism.exe /Online /Cleanup-Image /RestoreHealth /NoRestart 2>&1 | Out-String)
 $code=$LASTEXITCODE
 [PSCustomObject]@{Ferramenta='DISM RestoreHealth';Codigo=$code;
  Resumo=$out.Trim().Substring(0,[math]::Min(2600,$out.Trim().Length));

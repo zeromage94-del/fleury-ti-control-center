@@ -1,8 +1,10 @@
 # Integrações
 
+Desde a v1.4.3, todos os comandos do Fleury executam pelo clique, sem autorização adicional ou campo `confirm`. Usam a identidade Windows existente; validação de sessão, alvo, parâmetros, permissões, hashes e auditoria continuam ativas.
+
 ## Drivers Zebra e Downloads
 
-Consulte [DRIVERS_ZEBRA.md](DRIVERS_ZEBRA.md) para configurar `FLEURY_ZEBRA_DRIVER_REPOSITORY`. O catálogo não instala pacotes; a troca confirmada usa um driver revisado já instalado no computador da fila.
+Consulte [DRIVERS_ZEBRA.md](DRIVERS_ZEBRA.md) para configurar `FLEURY_ZEBRA_DRIVER_REPOSITORY`. O catálogo não instala pacotes; a troca acionada pelo clique usa um driver revisado já instalado no computador da fila.
 
 A limpeza de Downloads fica em Scripts, separada de TEMP. O botão Excluir todos os Downloads de todos os usuários executa a exclusão definitiva em uma única solicitação, sem prévia, seleção, idade mínima ou confirmação adicional. Percorre recursivamente as pastas Downloads padrão dos perfis locais não especiais, incluindo perfis desconectados, arquivos recentes, todos os formatos e subpastas. Remove arquivos somente leitura quando há permissão e subpastas que ficarem vazias, preservando a pasta Downloads de cada perfil. Não há limite de 200 candidatos nem de seis níveis. Links, junctions e pastas redirecionadas não são seguidos; arquivos em uso, acessos negados e itens ignorados aparecem nos contadores e impedem sucesso integral. O alvo e a sessão continuam validados, apenas uma limpeza simultânea por computador é aceita e não há repetição automática após timeout. Perfis de sistema e arquivos fora de Downloads são preservados.
 
@@ -11,7 +13,7 @@ A limpeza de Downloads fica em Scripts, separada de TEMP. O botão Excluir todos
 API conforme https://github.com/mrothenbuecher/zpl-rest: GET `/rest/printer`, GET `/rest/label`, POST `/rest/print` com `printer`, `label`, `data`.
 O serviço externo precisa estar implantado pela TI; não é iniciado ou instalado pelo Fleury. Configure `FLEURY_ZPL_REST_URL` antes de abrir o aplicativo. HTTP apenas no loopback; HTTPS remoto com certificado confiável. Não aceita redirecionamentos. Portas HTTPS padrão são aceitas.
 
-Na aba Integrações e Zebra, carregar catálogo, selecionar impressora/modelo e informar variáveis JSON. O servidor valida os IDs e bloqueia comandos ZPL nas variáveis; somente modelos revisados devem existir no zpl-rest. Confirmar antes de enviar. Conteúdo da etiqueta não aparece na auditoria. Sucesso indica aceitação do pedido; conferir etiqueta física. Timeout pode ocorrer após impressão: verificar fila antes de repetir.
+Na aba Integrações e Zebra, carregar catálogo, selecionar impressora/modelo e informar variáveis JSON. O servidor valida os IDs e bloqueia comandos ZPL nas variáveis; somente modelos revisados devem existir no zpl-rest. O clique em Imprimir envia uma única solicitação, sem confirmação adicional. Conteúdo da etiqueta não aparece na auditoria. Sucesso indica aceitação do pedido; conferir etiqueta física. Timeout pode ocorrer após impressão: verificar fila antes de repetir.
 
 O preview do projeto externo usa Labelary e envia ZPL a terceiros; o Fleury não chama esse endpoint. Não há reimpressão automática, reset ou calibração universal.
 
@@ -32,10 +34,10 @@ Artigo de referência: https://www.vicarius.io/articles/10-scripts-every-it-admi
 
 | Categoria | Operação disponível |
 |---|---|
-| Reinicialização | Reinício confirmado na aba Comandos e consulta de boot/reinício pendente |
+| Reinicialização | Reinício direto na aba Comandos e consulta de boot/reinício pendente |
 | Contas | Consulta de contas locais; sem provisionamento AD |
 | Inventário | Hardware e aplicativos nas abas existentes |
-| Limpeza | TEMP de todos os perfis, idade mínima e confirmação |
+| Limpeza | TEMP de todos os perfis, idade mínima e execução por clique |
 | Auditoria de segurança | Consulta do Microsoft Defender |
 | Rede | Diagnóstico e ping de máquinas cadastradas |
 | Firewall | Consulta dos perfis; sem alterações de regras |

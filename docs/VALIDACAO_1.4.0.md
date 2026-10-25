@@ -18,15 +18,17 @@ O relatório `.test-temp/simulation-report.json` registra identificação e hor�
 | PC lento | Pouca memória, disco cheio/eventos de armazenamento; TEMP de dois perfis com arquivo ocupado; resultado parcial não vira sucesso e documentos são preservados. Limpeza não garante ganho de desempenho. |
 | Downloads | Uma requisição sem prévia/seleção/idade/confirmar remove todos os arquivos de todos os perfis locais; inclui recentes, diversos formatos, somente leitura, ocultos, incompletos, mais de 200 arquivos e subpastas profundas. Testa arquivo bloqueado, junctions, sessão, alvo, concorrência e falhas parciais. |
 | Impressoras | Laser comum com atolamento, Zebra sem mídia, filas bloqueadas/parcialmente removidas, preservação das outras filas e Spooler que não volta. Tratar a fila não elimina a falha física. |
-| Drivers Zebra | Catálogo revisado, INF alterado, caminhos externos/links, driver não cadastrado, confirmação, resultado divergente e escolha de driver já instalado. |
+| Drivers Zebra | Catálogo revisado, INF alterado, caminhos externos/links, driver não cadastrado, clique direto, resultado divergente e escolha de driver já instalado. |
 | Software | Instalação, inventário e desinstalação de todos os pacotes do catálogo em lotes de até 20; sem admin, sem WinGet, máquina offline, timeout, código de falha, reinício requerido/iniciado, deduplicação e recuperação de interrupção. |
 | Atendimento | Cadastro/classificação, patrimônio/imagens, CSV, chamados/SLA, indicadores, auditoria e sessão. |
 | Outras funções | Consultas administrativas, console predefinido, restauração, DISM/SFC/CHKDSK, DNS, TEF, RDP/reinício, Zammad e Zebra REST com sucesso/falha simulados. |
-| Interface | Renderização de todas as telas, catálogo único, carregamento/retry, exclusão integral de Downloads em um clique, confirmação de driver, e exibição de resultados parciais. O DOM de teste não substitui navegação visual completa. |
+| Interface | Renderização de todas as telas, catálogo único, carregamento/retry, exclusão integral de Downloads em um clique, troca de driver e 19 outros comandos sem autorização adicional, e exibição de resultados parciais. O DOM de teste não substitui navegação visual completa. |
 
 No Windows, testes adicionais executam os scripts PowerShell de Downloads em perfis temporários e os scripts de impressão com cmdlets substituídos. Não usam perfis reais, impressoras, Spooler ou WinRM corporativos. Outro teste usa apenas o parser nativo para todos os scripts predefinidos.
 
 ## Binários
+
+A v1.4.3 estende a execução direta a todos os comandos do Fleury. Os testes verificam chamadas sem `confirm`, ausência de modais de autorização, validação do alvo, falhas reais e auditoria. Cmdlets de escrita usam `-Confirm:$false`, e DISM usa `/NoRestart`.
 
 Desde a v1.4.2 a limpeza de Downloads é integral. As versões anteriores tinham seleção/prévia; seus artefatos não incluem essa alteração.
 

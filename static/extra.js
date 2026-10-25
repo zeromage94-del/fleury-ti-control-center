@@ -36,7 +36,7 @@ refresh=async function(quiet=false) {
 };
 const previousActions=actions;
 actions=function(){
- const base=previousActions().replace('Confirmação obrigatória','Sem solicitação no PC remoto');
+ const base=previousActions().replace('Execução direta','Sem solicitação no PC remoto');
  return base.replace('</div></section>',
    actionButton('settings','Manutenção Windows','Disco 100% e limpeza','maintenance-page')+
    actionButton('printer','Diagnóstico Zebra','Impressão de etiquetas','maintenance-page')+
@@ -101,7 +101,7 @@ function maintenancePage(){
  `<div class="panel maintenance-select"><div class="panel-body toolbar-group">${machinePicker('maintenance-picker')}<button class="btn" data-act="verify">${ico('wifi')} Ping</button><span class="hint">Exige gestão autorizada e WinRM no computador selecionado.</span></div></div>
  <div class="maintenance-grid">
  ${panel('Desempenho e HD em 100%','monitor',`<div class="panel-body"><p class="hint">Mede I/O, verifica espaço, tipo/saúde do disco, eventos e serviços. Se houver erros de armazenamento, priorize backup e manutenção física.</p><div class="tool-buttons"><button class="btn primary" data-act="diagnostic" data-type="disk-100">Diagnosticar disco 100%</button><button class="btn" data-act="diagnostic" data-type="performance">CPU, RAM e perfis</button><button class="btn" data-act="disk-tool" data-tool="dism-check">DISM CheckHealth</button><button class="btn" data-act="disk-tool" data-tool="dism-repair">DISM RestoreHealth</button><button class="btn" data-act="disk-tool" data-tool="chkdsk-scan">CHKDSK /scan</button><button class="btn" data-act="disk-tool" data-tool="sfc-scan">SFC /scannow</button></div><hr class="thin-divider"/><h3>Testes pontuais de serviços</h3><div class="tool-buttons"><button class="btn" data-act="disk-service" data-service="SysMain">Reiniciar SysMain</button><button class="btn" data-act="disk-service" data-service="WSearch">Reiniciar Windows Search</button></div><p class="hint">Os serviços não são desabilitados de modo permanente.</p></div>`)}
- ${panel('Limpeza segura de temporários','refresh',`<div class="panel-body"><p class="hint">Limpeza direta, sem simulação, dos arquivos .tmp/.temp com 7 dias ou mais em C:\\Windows\\Temp e TEMP de todos os perfis. Não exclui imagens, documentos, logs, programas ou dados de etiquetas/TEF. Arquivos em uso são ignorados.</p><div class="toolbar-group"><label><span class="field-label">Arquivos com pelo menos</span><select id="cleanup-days" class="select">${[7,14,30,60,90].map(d=>`<option value="${d}" ${d===S.quickDays?'selected':''}>${d} dias</option>`).join('')}</select></label><button class="btn primary" data-act="quick-optimize">Otimização rápida</button><button class="btn" data-act="cleanup-run">Limpar temporários agora</button></div><div class="note">Confirmação do técnico e registro de auditoria obrigatórios. Nenhuma mudança em antivírus, política de segurança ou inicialização. Nenhuma limpeza garante corrigir um HD em 100%.</div></div>`)}
+ ${panel('Limpeza segura de temporários','refresh',`<div class="panel-body"><p class="hint">Limpeza direta, sem simulação, dos arquivos .tmp/.temp com 7 dias ou mais em C:\\Windows\\Temp e TEMP de todos os perfis. Não exclui imagens, documentos, logs, programas ou dados de etiquetas/TEF. Arquivos em uso são ignorados.</p><div class="toolbar-group"><label><span class="field-label">Arquivos com pelo menos</span><select id="cleanup-days" class="select">${[7,14,30,60,90].map(d=>`<option value="${d}" ${d===S.quickDays?'selected':''}>${d} dias</option>`).join('')}</select></label><button class="btn primary" data-act="quick-optimize">Otimização rápida</button><button class="btn" data-act="cleanup-run">Limpar temporários agora</button></div><div class="note">Execução direta e registro de auditoria. Nenhuma mudança em antivírus, política de segurança ou inicialização. Nenhuma limpeza garante corrigir um HD em 100%.</div></div>`)}
  ${panel('Impressoras Zebra','printer',`<div class="panel-body"><p class="hint">Identifica modelo pelo driver/nome, porta/IP, estado da fila, Spooler e teste TCP da porta de impressão. A calibração da etiqueta depende do modelo, mídia e driver.</p><label><span class="field-label">Nome exato da impressora instalada</span><input class="field" id="zebra-name" placeholder="Ex.: ZDesigner ZD421-203dpi ZPL"></label><div class="tool-buttons"><button class="btn primary" data-act="diagnostic" data-type="zebra">Diagnóstico Zebra</button><button class="btn" data-act="printers-list">Listar impressoras</button><button class="btn" data-act="printer-page">Abrir filas de impressão</button></div></div>`)}
  ${panel('PINPAD / TEF','shield',`<div class="panel-body"><p class="hint">Consulta portas COM, dispositivos USB/serial e serviços TEF conhecidos. Não acessa dados de cartão, transações nem chaves de pagamento.</p><div class="tool-buttons"><button class="btn primary" data-act="diagnostic" data-type="pinpad">Diagnóstico PINPAD</button></div><div class="thin-divider"></div><label><span class="field-label">Nome técnico do serviço TEF encontrado</span><input class="field" id="tef-service-name" placeholder="Serviço validado no diagnóstico"></label><div class="tool-buttons"><button class="btn danger" data-act="tef-service">Reiniciar middleware TEF</button></div><div class="note red">Nunca reinicie o TEF durante uma transação. Verifique com o operador e fornecedor antes de agir.</div></div>`)}
  </div><div class="section-gap">${zplRestPanel}</div><div class="section-gap">${restorePanel}</div><div class="section-gap">${diagnosticPanel}</div>`;
@@ -137,11 +137,11 @@ act=async function(action,data={}){
  if(action==='asset-photo'){const input=document.querySelector('#asset-file');if(input){input.value='';input.click();}return;}
  if(action==='asset-delete'){
   const m=currentMachine();if(!m)return;
-  return showModal({title:'Excluir foto de patrimônio?',desc:'A exclusão remove permanentemente esta imagem da base local.',danger:true,actionText:'Excluir foto',onConfirm:async()=>{
-   await request('assets/delete-image',{target:m.target,id:Number(data.id),confirm:true});
+  return busyCall(async()=>{
+   await request('assets/delete-image',{target:m.target,id:Number(data.id)});
    const url=assetBlobURLs.get(Number(data.id));if(url)URL.revokeObjectURL(url);
    assetBlobURLs.delete(Number(data.id));await loadAsset(m.target);toast('Imagem excluída.');
-  }});
+  },'');
  }
  if(action==='zpl-rest-check'){
   return busyCall(async()=>{const d=await request('diagnostics/zpl-rest');S.zplRest=d.result;render();toast('Conector ZPL REST consultado.');},'');
@@ -153,24 +153,25 @@ act=async function(action,data={}){
  }
  if(action==='restore-create'){
   const m=currentMachine();if(!m)return;
-  return showModal({title:'Criar ponto de restauração?',desc:`O Windows criará um ponto em ${m.target}, se a Proteção do Sistema estiver ativada. O limite padrão é um ponto a cada 24 horas. Requer permissão administrativa.`,inputs:[{name:'description',label:'Descrição do ponto',value:'Fleury TI - antes da manutenção',required:true}],actionText:'Criar ponto',onConfirm:async f=>{
-   const d=await request('maintenance/restore-create',{target:m.target,description:f.description,confirm:true});
+  const description=document.querySelector('#restore-description')?.value.trim()||'Fleury TI - antes da manutenção';
+  return busyCall(async()=>{
+   const d=await request('maintenance/restore-create',{target:m.target,description});
    S.restorePoints=null;S.diagnostics={target:m.target,label:'Ponto criado',result:d.result};
    const list=await request('maintenance/restore-points?target='+encodeURIComponent(m.target));
    S.restorePoints={target:m.target,result:list.result};render();toast('Ponto de restauração criado.');
-  }});
+  },'');
  }
  if(action==='restore-delete'){
   const m=currentMachine();if(!m)return;
   const n=Number(data.sequence);
-  const point=S.restorePoints?.result?.Pontos?.find(x=>Number(x.Numero)===n);
+  const point=S.restorePoints?.target===m.target?S.restorePoints.result?.Pontos?.find(x=>Number(x.Numero)===n):null;
   if(!point||point.MaisRecente||Number(point.IdadeDias)<14)return toast('Ponto não elegível. Atualize a lista.',true);
-  return showModal({title:'Excluir ponto de restauração antigo?',danger:true,desc:`Máquina ${m.target}. Ponto nº ${n}: ${point.Descricao}, de ${point.CriadoEm}. Esta exclusão NÃO poderá ser revertida. O ponto mais recente é protegido. Confirme somente após verificar backup e política de retenção.`,actionText:'Excluir ESTE ponto',onConfirm:async()=>{
-   const d=await request('maintenance/restore-delete',{target:m.target,sequence:n,confirm:true});
+  return busyCall(async()=>{
+   const d=await request('maintenance/restore-delete',{target:m.target,sequence:n});
    S.diagnostics={target:m.target,label:'Ponto excluído',result:d.result};S.restorePoints=null;
    const list=await request('maintenance/restore-points?target='+encodeURIComponent(m.target));
    S.restorePoints={target:m.target,result:list.result};render();toast('Ponto selecionado removido.');
-  }});
+  },'');
  }
  if(action==='zammad-sync')return busyCall(async()=>{const d=await request('tickets/zammad-sync',{});await refresh();toast(`${d.created} novos, ${d.updated} atualizados do Zammad.${d.possibly_truncated?' Limite de 300 atingido; podem existir outros chamados.':''}`);},'');
  if(action==='diagnostic'){
@@ -181,39 +182,35 @@ act=async function(action,data={}){
   const m=currentMachine();if(!m)return;
   const days=Number(document.querySelector('#quick-cleanup-days')?.value||document.querySelector('#cleanup-days')?.value||S.quickDays||14);S.quickDays=days;
   const quick=action==='quick-optimize';
-  return showModal({title:quick?'Otimização rápida da máquina?':'Limpar temporários de todos os usuários?',danger:false,
-   desc:`Máquina ${m.target}: arquivos .tmp e .temp de ${days} dias ou mais em TEMP dos perfis locais e Windows. Não remove programas, documentos, imagens nem configurações de segurança. Não executa simulação. Arquivos bloqueados são preservados.`,
-   actionText:quick?'Otimizar agora':'Executar limpeza',onConfirm:async()=>{
-    const route=quick?'maintenance/quick-optimize':'maintenance/cleanup';
-    const d=await request(route,{target:m.target,days,confirm:true});
-    S.diagnostics={target:m.target,label:quick?'Resultado da otimização rápida':'Resultado da limpeza de temporários',result:d.result};
-    render();toast(d.message||'Confira o resultado da limpeza.',d.ok===false);
-   }});
+  return busyCall(async()=>{
+   const d=await request(quick?'maintenance/quick-optimize':'maintenance/cleanup',{target:m.target,days});
+   S.diagnostics={target:m.target,label:quick?'Resultado da otimização rápida':'Resultado da limpeza de temporários',result:d.result};
+   render();toast(d.message||'Confira o resultado da limpeza.',d.ok===false);
+  },'');
  }
  if(action==='disk-service'){
   const m=currentMachine();if(!m)return;
   const service=data.service;
-  return showModal({title:'Reiniciar serviço do Windows?',danger:true,desc:`Reinício pontual do ${service} em ${m.target}; o tipo de inicialização será preservado. O serviço pode estar sob GPO.`,onConfirm:async()=>{
-    const d=await request('maintenance/disk-service',{target:m.target,service,confirm:true});
-    S.diagnostics={target:m.target,label:'Teste de serviço '+service,result:d.result};render();toast('Operação concluída.');
-  }});
+  return busyCall(async()=>{
+   const d=await request('maintenance/disk-service',{target:m.target,service});
+   S.diagnostics={target:m.target,label:'Teste de serviço '+service,result:d.result};render();toast('Operação concluída.');
+  },'');
  }
  if(action==='disk-tool'){
   const m=currentMachine();if(!m)return;
-  return showModal({title:'Executar verificação do Windows?',danger:true,desc:`Ferramenta ${data.tool} em ${m.target}. Pode demorar e elevar o I/O. Se houver indícios de falha física, priorize backup e avaliação do disco.`,onConfirm:async()=>{
-    const d=await request('maintenance/disk-tool',{target:m.target,tool:data.tool,confirm:true});
-    S.diagnostics={target:m.target,label:'Resultado '+data.tool,result:d.result};render();toast(d.ok?'Verificação concluída.':'A ferramenta reportou falha. Consulte o resultado.',!d.ok);
-  }});
+  return busyCall(async()=>{
+   const d=await request('maintenance/disk-tool',{target:m.target,tool:data.tool});
+   S.diagnostics={target:m.target,label:'Resultado '+data.tool,result:d.result};render();toast(d.ok?'Verificação concluída.':'A ferramenta reportou falha. Consulte o resultado.',!d.ok);
+  },'');
  }
  if(action==='tef-service'){
   const m=currentMachine();if(!m)return;
   const service=document.querySelector('#tef-service-name')?.value?.trim();
   if(!service)return toast('Informe o serviço identificado no diagnóstico, sem adivinhar o nome.',true);
-  return showModal({title:'Reiniciar middleware de pagamento?',danger:true,
-  desc:`Serviço ${service} de ${m.target}. Confirme somente se NÃO existir nenhuma transação financeira em andamento, após coordenação com a unidade e autorização da equipe TEF.`,actionText:'Confirmo ausência de transações',onConfirm:async()=>{
-    const d=await request('maintenance/tef-restart',{target:m.target,service,confirm:true});
-    S.diagnostics={target:m.target,label:'Resultado do middleware de pagamento',result:d.result};render();toast('Serviço reiniciado; validar a conexão do PINPAD.');
-  }});
+  return busyCall(async()=>{
+   const d=await request('maintenance/tef-restart',{target:m.target,service});
+   S.diagnostics={target:m.target,label:'Resultado do middleware de pagamento',result:d.result};render();toast('Serviço reiniciado; validar a conexão do PINPAD.');
+  },'');
  }
  return oldAct(action,data);
 };
@@ -299,7 +296,7 @@ function quickPanel() {
  <div class="quick-cleanup"><label class="field-label" for="quick-cleanup-days">Idade mínima em TEMP</label><select id="quick-cleanup-days" class="select">${[7,14,30,60,90].map(d=>`<option value="${d}" ${d===S.quickDays?'selected':''}>${d} dias</option>`).join('')}</select>
  <div class="quick-grid">${quickBtn('bolt','Otimizar agora','quick-optimize','Limpeza direta .tmp/.temp')}
  ${quickBtn('refresh','Limpar temporários','cleanup-run','Todos os perfis; sem simular')}</div>
- <p class="hint">Sem remoção de programas, imagens, documentos ou logs. Nenhuma alteração de antivírus, GPO, registro ou serviços. Confirmação do técnico antes de executar.</p></div>
+ <p class="hint">Sem remoção de programas, imagens, documentos ou logs. Nenhuma alteração de antivírus, GPO, registro ou serviços. O clique executa a ação.</p></div>
  <h3 class="quick-group-title">Software homologado</h3><div class="quick-grid">
  ${quickBtn('download','Instalar software','software-page','Catálogo WinGet permitido')}
  ${quickBtn('bolt','Comandos rápidos','commands-page','Todas as ferramentas')}
@@ -310,7 +307,7 @@ function quickPanel() {
  ${quickBtn('shield','PINPAD avançado','maintenance-page','Middleware TEF')}
  ${quickBtn('monitor','Conectar RDP','rdp','Autenticação Windows')}
  ${quickBtn('terminal','PowerShell remoto','terminal','WinRM autorizado')}
- ${quickBtn('power','Reiniciar PC','restart','Confirmação do técnico')}
+ ${quickBtn('power','Reiniciar PC','restart','Execução ao clicar')}
  </div>
  ${points.length?`<h3 class="quick-group-title">Pontos existentes (${points.length})</h3><div class="restore-quick-list">${points.map(p=>`<div class="restore-quick"><div><strong>#${asText(p.Numero)}</strong> ${asText(p.Descricao)} <small class="muted">${asText(p.CriadoEm)}</small></div>${!p.MaisRecente&&Number(p.IdadeDias)>=14?`<button class="btn sm danger" data-act="restore-delete" data-sequence="${esc(p.Numero)}">Excluir antigo</button>`:'<span class="chip green">Preservado</span>'}</div>`).join('')}</div>`:''}
  ${diag?`<h3 class="quick-group-title">${esc(diag.label)}</h3><div class="quick-output">${prettyData(diag.result)}</div>`:''}
@@ -341,12 +338,10 @@ act=async function(action,data={}){
  }
  if(action==='quick-flush-dns'){
   const m=currentMachine();if(!m)return;
-  return showModal({title:'Limpar cache DNS do computador?',danger:true,
-   desc:`Apenas a máquina ${m.target}. Não altera gateway, proxy, VPN ou servidores DNS. Execute durante atendimento autorizado.`,
-   actionText:'Confirmar limpeza DNS',onConfirm:async()=>{
-    const d=await request('maintenance/flush-dns',{target:m.target,confirm:true});
-    S.diagnostics={target:m.target,label:'Limpeza do cache DNS',result:d.result};render();toast('Cache DNS atualizado.');
-   }});
+  return busyCall(async()=>{
+   const d=await request('maintenance/flush-dns',{target:m.target});
+   S.diagnostics={target:m.target,label:'Limpeza do cache DNS',result:d.result};render();toast('Cache DNS atualizado.');
+  },'');
  }
  return previousQuickAct(action,data);
 };
