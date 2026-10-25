@@ -67,3 +67,15 @@ Base revisada: 9b4f675137e7846211c546b8ac7a16540bef18ad.
 - Workflow ampliado: parser PowerShell sem execução administrativa; abertura do portátil duas vezes, instalação silenciosa, abertura do EXE instalado, API loopback com registro fictício, imagem empacotada e preservação do banco após desinstalação. Resultado do novo build deve ser consultado no Actions; não pressupor aprovação antes da execução.
 
 Limite: simulação não executa comandos administrativos contra Windows remoto, nem comprova impressão física, limpeza real, recuperação do Windows, WinGet corporativo ou políticas do domínio. P0 #1 continua pendente de homologação autorizada. Os binários ficam nos artefatos do workflow, não nos arquivos-fonte do Git.
+
+### Build e execução dos pacotes v1.3.1 confirmados
+
+- Commit testado/compilado: `b91a366813cd88e6ecec8ba1a1d3e52ffb2e616c`.
+- Workflow concluído com sucesso: https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40159259493
+- Windows Server 2022 / Python 3.12: 56 testes aprovados, incluindo parser PowerShell nativo; oito scripts JS, renderização das páginas e 56 referências de ações verificadas.
+- Smoke real dos executáveis no runner descartável aprovado: portátil iniciado e reiniciado, instalador silencioso executado, aplicativo instalado iniciado, API loopback com cadastro fictício, PNG empacotado e desinstalação preservando o banco. Nenhuma operação administrativa remota foi executada.
+- Pacote com os dois formatos e SHA256.txt: https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40159259493/artifacts/12584998943
+- Portátil: `Fleury_TI_Portatil_v1.3.1_Windows_x64.zip`; SHA256 `2073a98ce42fe421f3d65941f62a3a697ecf334f6f52d105e57c1b663803976d`.
+- Instalador: `Fleury_TI_Instalador_v1.3.1_Windows_x64.exe`; SHA256 `979ae34eba3e5a066724e112fca1d01e540f2222eda677792d042df7064d2ba9`.
+- Expiração informada pela API: 08/11/2026 03:44:30 UTC (retenção de 14 dias).
+- A validação no runner não substitui homologação Windows 10/11 corporativo, Zebra física, WinRM/RDP, WinGet e restauração em ambiente autorizado. A P0 permanece aberta.
