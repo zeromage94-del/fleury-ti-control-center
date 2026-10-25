@@ -2,7 +2,9 @@
 
 Todos os comandos executam pelo clique do técnico, sem modal de autorização adicional e sem campo `confirm` na API. Abrange TEMP/Downloads, restauração, serviços/DISM/SFC/CHKDSK, DNS/TEF, reinício, Spooler/filas, drivers, impressão Zebra, WinUtil, fotos, software e encerramento. Formulários permanecem apenas para dados necessários. Sessão, alvo, parâmetros, catálogos, hashes e auditoria são preservados. Os cmdlets de escrita usam `-Confirm:$false`; DISM usa `/NoRestart`.
 
-A interface simulada verificou Downloads, troca de driver e 19 outros comandos por clique, sem modais e com alvo correto. Validação Linux: 106 testes descobertos, 97 aprovados e 9 casos nativos reservados ao Windows. Execução `416b952e-8375-493b-8926-06c254758931`. Build Windows desta revisão ainda em preparação.
+A interface simulada verificou Downloads, troca de driver e 19 outros comandos por clique, sem modais e com alvo correto. Validação Linux: 106 testes descobertos, 97 aprovados e 9 casos nativos reservados ao Windows. Execução `416b952e-8375-493b-8926-06c254758931`. [Build Windows #14 aprovado](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40221511004), commit `0d3f874c98f4a4cb7b1f05d2c23fd1bb14e15115`, duração de 1m56s: testes Python/JS, scripts nativos em sandbox, empacotamento e smoke do portátil/instalado aprovados.
+
+**Fleury-TI-Windows-x64** (19 MB) contém instalador EXE, ZIP portátil v1.4.3 e SHA256.txt; digest do artefato GitHub `9afced1edaf696ad7c3693a69950d4a69ae848cede880b44d0d9c68ac39406c4`. **Fleury-TI-Simulation-Report** (8,11 KB), digest `af36371cc3ac284196b407841462044adfefafc6b3ccdc40bcb9e9d002ba3df6`. Hashes individuais estão em SHA256.txt. Retenção de 14 dias.
 
 ## Histórico: v1.4.2
 
