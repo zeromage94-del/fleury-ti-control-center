@@ -1,4 +1,8 @@
-# Estado atual: v1.3.2
+# Estado atual: v1.4.1
+
+Downloads: o clique em **Excluir selecionados** executa diretamente, sem modal nem campo de confirmação adicional. Prévia, seleção explícita, sessão, expiração, execução única e auditoria preservadas. Cinco testes HTTP de Downloads e o smoke JavaScript aprovados localmente. O build Windows desta revisão será registrado após conclusão.
+
+## Histórico: v1.3.2
 
 25/10/2026: **v1.3.2 compilada e testada no Windows**, incluindo a correção da descoberta de vizinhos por IPv4 (PR #4, commit `c7b434911f598f54cc192509e2cddacaaae57328`). O [workflow Windows aprovado](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40189673998) executou **62 testes Python**, regressões JavaScript, build portátil/instalador, inicialização/reinicialização do portátil, abertura do instalado, API loopback e preservação do SQLite na desinstalação. [Artefatos compilados](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40189673998/artifacts/12596464419), expiração **08/11/2026 11:38:59 UTC**.
 

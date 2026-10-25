@@ -4,7 +4,7 @@
 
 Consulte [DRIVERS_ZEBRA.md](DRIVERS_ZEBRA.md) para configurar `FLEURY_ZEBRA_DRIVER_REPOSITORY`. O catálogo não instala pacotes; a troca confirmada usa um driver revisado já instalado no computador da fila.
 
-A limpeza de Downloads fica em Scripts, separada de TEMP. Consulte a prévia, selecione os arquivos antigos e confirme. Ela cobre apenas pastas Downloads padrão de perfis locais não especiais; não segue redirecionamentos, links ou pastas de rede. Máximo de 200 candidatos por prévia, 12000 itens e seis níveis de inspeção; resultados limitados ou com falhas são informados como parciais. A prévia expira em cinco minutos e é consumida antes da execução; não há repetição automática após timeout.
+A limpeza de Downloads fica em Scripts, separada de TEMP. Consulte a prévia, selecione os arquivos antigos e clique em Excluir selecionados: a exclusão definitiva começa diretamente, sem confirmação adicional. Ela cobre apenas pastas Downloads padrão de perfis locais não especiais; não segue redirecionamentos, links ou pastas de rede. Máximo de 200 candidatos por prévia, 12000 itens e seis níveis de inspeção; resultados limitados ou com falhas são informados como parciais. A prévia expira em cinco minutos e é consumida antes da execução; não há repetição automática após timeout.
 
 ## Zebra / zpl-rest
 

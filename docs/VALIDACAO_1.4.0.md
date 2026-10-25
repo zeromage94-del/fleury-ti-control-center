@@ -1,4 +1,4 @@
-# Validação v1.4.0 — laboratório corporativo simulado
+# Validação v1.4 — laboratório corporativo simulado
 
 O laboratório usa HTTP loopback, SQLite e arquivos temporários reais. O adaptador de rede/WinRM mantém estado de computadores, pacotes e filas fictícias; qualquer processo ou conexão externa não modelada falha. Ele não é uma rede Windows corporativa real.
 
@@ -16,13 +16,13 @@ O relatório `.test-temp/simulation-report.json` registra identificação e hor�
 | Descoberta | Todos os endereços de um segmento fictício são consultados; PCs com ICMP bloqueado aparecem por TCP; impressoras 631/9100 são separadas; máquina sem resposta perde estado Online; vizinhos ARP filtrados são preservados. |
 | Rede lenta | Latência modelada de 400 ms, timeout, portas filtradas e erro por host; os demais resultados permanecem disponíveis. Limite existente: até oito segmentos privados, 4096 endereços únicos por operação. |
 | PC lento | Pouca memória, disco cheio/eventos de armazenamento; TEMP de dois perfis com arquivo ocupado; resultado parcial não vira sucesso e documentos são preservados. Limpeza não garante ganho de desempenho. |
-| Downloads | Perfis locais, seleção explícita, IDs opacos, sessão, confirmação, expiração, troca de alvo, arquivo alterado, repetição após timeout e preservação de itens não selecionados. |
+| Downloads | Perfis locais, seleção explícita, exclusão direta sem modal adicional (v1.4.1), IDs opacos, sessão, expiração, troca de alvo, arquivo alterado, repetição após timeout e preservação de itens não selecionados. |
 | Impressoras | Laser comum com atolamento, Zebra sem mídia, filas bloqueadas/parcialmente removidas, preservação das outras filas e Spooler que não volta. Tratar a fila não elimina a falha física. |
 | Drivers Zebra | Catálogo revisado, INF alterado, caminhos externos/links, driver não cadastrado, confirmação, resultado divergente e escolha de driver já instalado. |
 | Software | Instalação, inventário e desinstalação de todos os pacotes do catálogo em lotes de até 20; sem admin, sem WinGet, máquina offline, timeout, código de falha, reinício requerido/iniciado, deduplicação e recuperação de interrupção. |
 | Atendimento | Cadastro/classificação, patrimônio/imagens, CSV, chamados/SLA, indicadores, auditoria e sessão. |
 | Outras funções | Consultas administrativas, console predefinido, restauração, DISM/SFC/CHKDSK, DNS, TEF, RDP/reinício, Zammad e Zebra REST com sucesso/falha simulados. |
-| Interface | Renderização de todas as telas, catálogo único, carregamento/retry, seleção/confirmação de Downloads e driver, e exibição de resultados parciais. O DOM de teste não substitui navegação visual completa. |
+| Interface | Renderização de todas as telas, catálogo único, carregamento/retry, seleção e exclusão direta de Downloads, confirmação de driver, e exibição de resultados parciais. O DOM de teste não substitui navegação visual completa. |
 
 No Windows, testes adicionais executam os scripts PowerShell de Downloads em perfis temporários e os scripts de impressão com cmdlets substituídos. Não usam perfis reais, impressoras, Spooler ou WinRM corporativos. Outro teste usa apenas o parser nativo para todos os scripts predefinidos.
 

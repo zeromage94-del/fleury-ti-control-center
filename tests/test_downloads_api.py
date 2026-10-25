@@ -88,9 +88,9 @@ class DownloadsAPITests(unittest.TestCase):
 
     def body(self, preview, **changes):
         return dict(target='PC-SIM', preview_id=preview['preview_id'],
-                    files=[preview['files'][0]['id']], confirm=True, **changes)
+                    files=[preview['files'][0]['id']], **changes)
 
-    def test_preview_then_selected_file_only_and_replay_rejected(self):
+    def test_selected_file_removed_without_confirmation_and_replay_rejected(self):
         preview = self.preview()
         self.assertEqual(len(preview['files']), 2)
         self.assertNotIn('C:\\Users', json.dumps(preview))
@@ -104,11 +104,12 @@ class DownloadsAPITests(unittest.TestCase):
         self.assertEqual(self.request('/api/maintenance/downloads-cleanup', self.body(preview))[0], 400)
         self.assertEqual(len(self.calls), 2)
 
-    def test_session_confirmation_target_and_ids_are_checked_before_io(self):
+    def test_session_target_and_ids_are_checked_before_io(self):
         self.assertEqual(self.request('/api/maintenance/downloads-preview?target=PC-SIM', token=False)[0], 403)
         preview = self.preview()
         original = self.body(preview)
-        for changes in ({'confirm': False}, {'target': 'PC-OTHER'}, {'files': []},
+        self.assertEqual(self.request('/api/maintenance/downloads-cleanup', original, token=False)[0], 403)
+        for changes in ({'target': 'PC-OTHER'}, {'files': []},
                         {'files': ['C:\\Users\\Alice\\Downloads\\old.pdf']},
                         {'files': [preview['files'][0]['id']] * 2}, {'preview_id': 'bad'}):
             with self.subTest(changes=changes):

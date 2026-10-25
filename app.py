@@ -714,7 +714,7 @@ def sync_zammad():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'FleuryTI/1.4.0'
+    server_version = 'FleuryTI/1.4.1'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/'):
@@ -980,8 +980,6 @@ class Handler(BaseHTTPRequestHandler):
             require_computer(target)
             if not WIN:
                 raise RuntimeError('A limpeza de Downloads requer Windows e WinRM.')
-            if b.get('confirm') is not True:
-                raise ValueError('Confirme a exclusão dos arquivos de Downloads selecionados.')
             ident = b.get('preview_id')
             if not isinstance(ident, str):
                 raise ValueError('Gere uma prévia de Downloads antes de excluir arquivos.')
@@ -1323,7 +1321,7 @@ def main():
     server.downloads_previews = {}
     url = f'http://127.0.0.1:{port}/'
     print('==============================================')
-    print(' FLEURY TI CONTROL CENTER - versão 1.4.0')
+    print(' FLEURY TI CONTROL CENTER - versão 1.4.1')
     print(' Local:', url)
     print(' Usuário:', metrics()['username'])
     print(' Windows:', WIN)

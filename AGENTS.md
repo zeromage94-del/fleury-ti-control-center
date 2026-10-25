@@ -18,7 +18,7 @@ Aplicativo Python 3.12/stdlib + JavaScript sem framework, para Windows autorizad
 1. Vincule botões a ações e rotas reais; reporte falhas e limites com clareza.
 2. Não habilite WinRM, TrustedHosts, GPO, firewall, execução irrestrita, nem desative EDR/antivírus automaticamente.
 3. Use a identidade Windows existente. Nunca inclua senhas/tokens no navegador, repositório ou auditoria.
-4. Software: o clique em Instalar/Desinstalar é a autorização, sem modal adicional, conforme pedido do proprietário. Valide computador, catálogo, sessão e escopo machine; registre fila, destino e resultado. Outras operações de escrita preservam confirmação. Não registre ZPL ou conteúdo de etiquetas.
+4. Software: o clique em Instalar/Desinstalar é a autorização, sem modal adicional, conforme pedido do proprietário. Valide computador, catálogo, sessão e escopo machine; registre fila, destino e resultado. Downloads: o clique em Excluir selecionados autoriza a exclusão, sem modal ou campo de confirmação adicional; preserve prévia, seleção, sessão, validade e auditoria. Outras operações de escrita preservam confirmação. Não registre ZPL ou conteúdo de etiquetas.
 5. Não execute scripts obtidos de páginas externas automaticamente. WinUtil só por cópia local revisada e SHA256 configurado.
 6. Não use preview Labelary para dados corporativos. Não execute testes de impressão/WinRM contra equipamentos reais sem destino de homologação informado.
 7. Não inclua `data/`, bancos, fotos, logs, ambientes virtuais ou binários nos commits. Preserve o ZIP original fora do repositório.

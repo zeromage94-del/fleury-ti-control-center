@@ -66,9 +66,11 @@ console.log(`${scripts.length} scripts carregados; todas as páginas renderizada
   if(S.downloadsSelected.size||!main.innerHTML.includes('old.pdf'))throw Error('Downloads pré-selecionados ou prévia ausente');
   await act('downloads-cleanup');
   if(modal)throw Error('Exclusão sem seleção abriu confirmação');
+  if(requests.some(x=>x.path==='maintenance/downloads-cleanup'))throw Error('Downloads apagados sem seleção');
   S.downloadsSelected.add('file1');await act('downloads-cleanup');
-  if(requests.some(x=>x.path==='maintenance/downloads-cleanup'))throw Error('Downloads apagados antes da confirmação');
-  await modal.onConfirm();modal=null;
+  if(modal)throw Error('Limpeza Downloads abriu confirmação adicional');
+  const cleanup=requests.filter(x=>x.path==='maintenance/downloads-cleanup');
+  if(cleanup.length!==1||cleanup[0].body.files[0]!=='file1'||'confirm' in cleanup[0].body)throw Error('Clique não executou a seleção diretamente');
   if(S.downloadsPreview||!main.innerHTML.includes('Arquivo alterado preservado'))throw Error('Prévia não consumida ou resultado parcial oculto');
   S.page='integrations';await act('drivers-installed');
   S.driverPrinter='Zebra ZD421';S.driverPackage='zd';render();
@@ -79,5 +81,5 @@ console.log(`${scripts.length} scripts carregados; todas as páginas renderizada
   const change=requests.find(x=>x.path==='printers/drivers/change');
   if(change.body.driver!=='zd'||change.body.target!=='PC-TESTE')throw Error('Troca enviou driver/alvo errado');
  })()`,context);
- console.log('Catálogo, Downloads com seleção/confirmacão, resultado parcial e troca de driver revisado aprovados.');
+ console.log('Catálogo, Downloads direto sem modal, resultado parcial e troca de driver revisado aprovados.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

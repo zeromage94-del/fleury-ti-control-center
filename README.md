@@ -1,4 +1,4 @@
-# Fleury TI Control Center 1.4.0
+# Fleury TI Control Center 1.4.1
 
 Central local de suporte Windows baseada no ZIP v1.2 fornecido pelo usuário. Python/stdlib, interface web local, SQLite e auditoria. Protótipo independente; não implica aprovação ou afiliação oficial do Grupo Fleury.
 
@@ -9,7 +9,7 @@ Cadastre e selecione a máquina no topo. Ações remotas usam a identidade Windo
 
 ## Novo na v1.4.0
 
-- Downloads de todos os perfis locais: prévia, seleção individual e confirmação; separado da limpeza de TEMP. Arquivos recentes, alterados, protegidos e pastas redirecionadas são preservados.
+- Downloads de todos os perfis locais: prévia e seleção individual; clique em Excluir selecionados executa diretamente, sem confirmação adicional; separado da limpeza de TEMP. Arquivos recentes, alterados, protegidos e pastas redirecionadas são preservados.
 - Diagnóstico de impressoras comuns/Zebra, resultado verificado da limpeza da fila e reinício do Spooler. Fila vazia não comprova correção de defeito físico.
 - [Catálogo local revisado de drivers Zebra](docs/DRIVERS_ZEBRA.md), validação SHA256 de INF opcional e troca para driver compatível já instalado no computador.
 - Verificação por TCP e ICMP; descoberta informa falhas individuais e atualiza computadores sem resposta.
