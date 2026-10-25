@@ -2,7 +2,9 @@
 
 Downloads: uma única ação exclui todos os arquivos e subpastas vazias das pastas Downloads de todos os perfis locais do computador selecionado. Sem prévia, seleção, confirmação, filtro por idade ou limite de candidatos/profundidade. A pasta Downloads de cada perfil é preservada. Arquivos em uso, permissões negadas, links e pastas redirecionadas ficam explícitos no resultado parcial; sessão, alvo, auditoria e bloqueio de concorrência permanecem ativos.
 
-Validação Linux: 105 testes descobertos, 96 aprovados e 9 casos nativos reservados ao Windows. Execução `f5ab51b4-1de4-440d-9bd3-4a45069fa97b`. Teste JavaScript de clique único sem solicitação de prévia/seleção aprovado. Build Windows desta revisão ainda em preparação.
+Validação Linux: 105 testes descobertos, 96 aprovados e 9 casos nativos reservados ao Windows. Execução `f5ab51b4-1de4-440d-9bd3-4a45069fa97b`. Teste JavaScript de clique único sem solicitação de prévia/seleção aprovado. [Build Windows #13 aprovado](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40220313353), commit `6ca55ee2ff34645bf91827c51821fcf6076692c7`, duração de 1m41s. Os testes nativos de limpeza integral em perfis temporários, parser, interface, compilação e smoke do portátil/instalado passaram. Inclui recentes, todos os formatos, ocultos, somente leitura, 261 arquivos, subpastas profundas, arquivo bloqueado, junctions e pastas ausentes.
+
+Artefato **Fleury-TI-Windows-x64** (19 MB): instalador EXE, ZIP portátil v1.4.2 e SHA256.txt. Digest do artefato GitHub: `76b0e742d7bd2ec5ab9c8083fce0d05e81d26401560e47f4c09f9bf6c7aff979`. **Fleury-TI-Simulation-Report** (8,05 KB), digest `3aee49fe0e7220f18a8656d019521ba4e16d93de44bbe136a03636b47a49890a`. Os hashes individuais estão em SHA256.txt; retenção de 14 dias.
 
 ## Histórico: v1.4.1
 
