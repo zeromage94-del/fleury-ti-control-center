@@ -17,7 +17,16 @@ Instalação e desinstalação dos 47 pacotes do catálogo foram simuladas em lo
 
 Correções: verificação usa TCP/ICMP; falha de um host não descarta outros; cadastro sem resposta deixa de permanecer Online; fila valida IDs, escopo e códigos de saída; impressoras retornam estado verificado; Downloads tem prévia com IDs opacos, seleção, validade de cinco minutos e execução única. TEMP não inclui Downloads automaticamente e não segue junctions na raiz. Drivers Zebra vêm de catálogo local revisado; troca somente para driver já instalado e compatível com o modelo declarado.
 
-Matriz e limites: [VALIDACAO_1.4.0.md](VALIDACAO_1.4.0.md). Build Windows da nova versão deve ser confirmado pela execução do commit correspondente; os artefatos da v1.3.2 não validam esta versão. Homologação física e corporativa permanece pendente.
+Matriz e limites: [VALIDACAO_1.4.0.md](VALIDACAO_1.4.0.md). Homologação física e corporativa permanece pendente.
+
+### Build v1.4.0 confirmado
+
+- Commit compilado: `0662e31e6086f2bb8f16f37665e71fe1d02318cc`, branch `codex/corporate-simulation-1.4`. A `main` foi preservada.
+- [Execução Windows #11](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40203064667): **Success**, duração de 1m28s, em 25/10/2026.
+- A execução aprovou as regressões Python/JS, incluindo os scripts nativos em sandbox Windows, compilou EXE e instalador e aprovou o smoke do portátil (abertura/reinício), aplicativo instalado, API local, assets e preservação do banco após desinstalação.
+- Artefato **Fleury-TI-Windows-x64** (19 MB): contém ZIP portátil v1.4.0, instalador EXE e `SHA256.txt`. Digest SHA256 do artefato GitHub: `2527713814642c79855007e3875bc685e22d0f1953b8379ec90daddb17747ade`.
+- Artefato **Fleury-TI-Simulation-Report** (8,59 KB): relatório JSON da execução Windows. Digest SHA256 do artefato: `331ace5a2ae806a657c9a95bf0558d4bec51eea5ecd6956298689b4eefbde281`.
+- Esses digests identificam os contêineres de artefatos do GitHub; os hashes individuais do ZIP/EXE estão em `SHA256.txt`. Artefatos com retenção de 14 dias, sem publicação de Release.
 
 Data: 20/10/2026. Base: ZIP v1.2 do usuário.
 

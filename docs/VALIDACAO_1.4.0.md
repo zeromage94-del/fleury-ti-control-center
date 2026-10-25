@@ -30,4 +30,6 @@ No Windows, testes adicionais executam os scripts PowerShell de Downloads em per
 
 O workflow `.github/workflows/windows.yml` executa testes no Windows Server 2022/Python 3.12, gera EXE portátil e instalador com PyInstaller/Inno Setup, inicia/reinicia o portátil e inicia o aplicativo instalado com dados fictícios via API loopback. Verifica assets, catálogo, persistência e preservação do banco após desinstalação; publica ZIP, instalador e SHA256 em Artifacts. Só a execução concluída do commit correspondente confirma o build.
 
-Esta documentação não declara aprovação prévia dos binários. Consulte o resultado da execução e o hash do commit antes de distribuir. Homologação em Windows 10/11 corporativo, drivers/firmware reais, qualidade de impressão, WinRM/WinGet, políticas e restauração permanecem necessárias conforme `HOMOLOGACAO_P0.md`.
+Build confirmado na [execução #11](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40203064667), commit `0662e31e6086f2bb8f16f37665e71fe1d02318cc`: testes, geração e smoke dos binários aprovados. Baixe **Fleury-TI-Windows-x64** em Artifacts para obter o portátil, instalador e hashes; **Fleury-TI-Simulation-Report** contém o relatório Windows. Consulte `STATUS.md` para os digests dos artefatos.
+
+Homologação em Windows 10/11 corporativo, drivers/firmware reais, qualidade de impressão, WinRM/WinGet, políticas e restauração permanecem necessárias conforme `HOMOLOGACAO_P0.md`.
