@@ -9,6 +9,16 @@
 
 # Validação da migração
 
+## v1.4.0 — laboratório corporativo e remediação seletiva
+
+Validação Linux em 25/10/2026: 109 testes descobertos, 102 aprovados e sete reservados ao Windows (parser PowerShell, três casos nativos de Downloads e três casos nativos de impressão). Relatório local da execução `f73fc6cd-cdd1-4b92-b6d2-941c0ab4aed4`: `.test-temp/simulation-report.json`; seis cenários sequenciais com 105 verificações esperadas/observadas. Oito scripts JS, todas as telas e 62 referências de ações; seleção/confirmação de Downloads, resultado parcial e driver revisado verificados no DOM de teste.
+
+Instalação e desinstalação dos 47 pacotes do catálogo foram simuladas em lotes, com inventário e SQLite reais. Também foram exercitados bloqueio corporativo, ausência de admin/WinGet, timeout, falha parcial, descoberta com ping bloqueado e filas laser/Zebra. O adaptador mantém estado fictício, sem executar os instaladores de fornecedores.
+
+Correções: verificação usa TCP/ICMP; falha de um host não descarta outros; cadastro sem resposta deixa de permanecer Online; fila valida IDs, escopo e códigos de saída; impressoras retornam estado verificado; Downloads tem prévia com IDs opacos, seleção, validade de cinco minutos e execução única. TEMP não inclui Downloads automaticamente e não segue junctions na raiz. Drivers Zebra vêm de catálogo local revisado; troca somente para driver já instalado e compatível com o modelo declarado.
+
+Matriz e limites: [VALIDACAO_1.4.0.md](VALIDACAO_1.4.0.md). Build Windows da nova versão deve ser confirmado pela execução do commit correspondente; os artefatos da v1.3.2 não validam esta versão. Homologação física e corporativa permanece pendente.
+
 Data: 20/10/2026. Base: ZIP v1.2 do usuário.
 
 ## Build Windows confirmado

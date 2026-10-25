@@ -11,12 +11,13 @@ import maintenance
 import software_catalog
 import admin_scripts
 import video_insights
+import printer_support
 
 @unittest.skipUnless(os.name == 'nt', 'Native PowerShell parser requires Windows runner')
 class PowerShellSyntax(unittest.TestCase):
     def test_all_predefined_scripts_parse_without_execution(self):
         scripts={}
-        for module in (maintenance,software_catalog):
+        for module in (maintenance,software_catalog,printer_support):
             scripts.update({module.__name__+'.'+k:v for k,v in vars(module).items()
                             if k.endswith('_PS') and isinstance(v,str)})
         scripts.update({'admin.'+x['key']:admin_scripts.body(x['key']) for x in admin_scripts.catalog()})

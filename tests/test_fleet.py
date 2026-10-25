@@ -101,7 +101,7 @@ class JobTests(unittest.TestCase):
         self.assertEqual(machine['mac'],'00-00-00-00-00-02')
 
     def test_filtered_neighbor_is_not_lost_after_scan(self):
-        with patch.object(app,'scan_targets',return_value=0),patch.object(app,'discover_neighbors',return_value=[('192.168.1.2','aa-bb-cc-dd-ee-ff'),('192.168.2.2','other')]):
+        with patch.object(app,'scan_targets',return_value={'found':0,'online':0,'scanned':2,'unresponsive':2,'errors':[]}),patch.object(app,'discover_neighbors',return_value=[('192.168.1.2','aa-bb-cc-dd-ee-ff'),('192.168.2.2','other')]):
             result=app.scan_segments(['192.168.1.0/30'])
         self.assertEqual(result['neighbors_added'],1)
         self.assertEqual(result['tested'],2)
@@ -111,7 +111,7 @@ class JobTests(unittest.TestCase):
         entered,release=threading.Event(),threading.Event()
         def execute(target,operation,ids):
             entered.set();release.wait(3)
-            return {'Instalacoes':[{'Pacote':ids[0],'CodigoSaida':1}]}
+            return {'Escopo':'machine','Instalacoes':[{'Pacote':ids[0],'CodigoSaida':1,'Escopo':'machine'}]}
         manager=self.manager(execute)
         first=manager.submit('PC-TEST','install',['firefox'],['Mozilla.Firefox'])
         self.assertTrue(entered.wait(2))
@@ -122,7 +122,7 @@ class JobTests(unittest.TestCase):
         self.assertEqual(manager.list()[0]['result']['Instalacoes'][0]['CodigoSaida'],1)
 
     def test_success_and_interrupted_recovery(self):
-        manager=self.manager(lambda *args:{'Desinstalacoes':[{'CodigoSaida':0}]})
+        manager=self.manager(lambda *args:{'Escopo':'machine','Desinstalacoes':[{'Pacote':'7zip.7zip','CodigoSaida':0,'Escopo':'machine'}]})
         manager.submit('PC-TEST','uninstall',['7zip'],['7zip.7zip'])
         manager.pool.shutdown(wait=True)
         self.assertEqual(manager.list()[0]['state'],'succeeded')

@@ -33,6 +33,7 @@ import integrations
 import admin_scripts
 import device_discovery
 import software_jobs
+import printer_support
 
 # Arquivos da aplicação empacotada podem ficar no diretório protegido _internal.
 # Os dados reais nunca devem ser criados dentro desse diretório nem em Program Files.
@@ -247,56 +248,78 @@ def record_device(target, info, mac='', origin='Descoberta autorizada'):
 
 
 def scan_targets(targets):
-    found = 0
+    targets = list(dict.fromkeys(targets))
+    report = {'found': 0, 'online': 0, 'scanned': len(targets), 'unresponsive': 0, 'errors': []}
+    known = {r['target'] for r in rows('SELECT target FROM machines')}
     with ThreadPoolExecutor(max_workers=24) as pool:
         futures = {pool.submit(device_discovery.probe,t,ping_one): t for t in targets}
         for future in as_completed(futures):
-            target, info = futures[future], future.result()
+            target = futures[future]
+            try:
+                info = future.result()
+            except Exception:
+                report['errors'].append({'target': target, 'message': 'Falha ao consultar o dispositivo.'})
+                info = {'alive': False, 'device_type': 'unknown', 'evidence': 'Consulta não concluída.'}
             if info['alive']:
                 record_device(target,info)
-                found += 1
-    return found
+                report['found'] += 1
+                report['online'] += 1
+            else:
+                report['unresponsive'] += 1
+                if target in known:
+                    record_device(target, info)
+    report['errors'].sort(key=lambda item: item['target'])
+    return report
 
 
 def scan_neighbors():
     # Deduplicate by IPv4, not by (IPv4, MAC): ARP can report the same host more than once.
     # The most recent MAC is retained for the unique target.
     seen = list(dict(discover_neighbors()).items())
+    errors = []
     with ThreadPoolExecutor(max_workers=24) as pool:
         futures = {pool.submit(device_discovery.probe,t,ping_one):(t,mac) for t,mac in seen}
         online = 0
         for future in as_completed(futures):
             target, mac = futures[future]
-            info = future.result()
+            try:
+                info = future.result()
+            except Exception:
+                errors.append({'target': target, 'message': 'Falha ao consultar o dispositivo.'})
+                info = {'alive': False, 'device_type': 'unknown', 'evidence': 'Consulta não concluída.'}
             online += int(info['alive'])
             record_device(target,info,mac,'Vizinho de rede')
-    audit('Descoberta de vizinhos','',True,f'{len(seen)} encontrados / {online} acessíveis')
-    return {'found':len(seen),'online':online,'note':'Inclui vizinhos conhecidos mesmo sem resposta. Tipo inferido por portas, sujeito a confirmação.'}
+    audit('Descoberta de vizinhos','',not errors,f'{len(seen)} encontrados / {online} acessíveis; falhas={len(errors)}')
+    return {'found':len(seen),'online':online,'scanned':len(seen), 'unresponsive':len(seen)-online,
+            'errors':sorted(errors, key=lambda item: item['target']),
+            'note':'Inclui vizinhos conhecidos mesmo sem resposta. Tipo inferido por portas, sujeito a confirmação.'}
 
 
 def scan_segments(segments):
     segments = device_discovery.validate_segments(segments)
     targets = sorted({str(ip) for cidr in segments for ip in ipaddress.ip_network(cidr).hosts()})
-    count = scan_targets(targets)
+    report = scan_targets(targets)
     # A varredura ativa alimenta ARP. Preserve vizinhos mesmo com ICMP/TCP filtrado.
     warnings=[]
     try:
         neighbors=dict(discover_neighbors())
-    except Exception as exc:
-        neighbors={};warnings.append('Não foi possível consultar vizinhos: '+str(exc))
+    except Exception:
+        neighbors={};warnings.append('Não foi possível consultar vizinhos de rede.')
     known=0
-    networks=[ipaddress.ip_network(c) for c in segments]
     for target,mac in neighbors.items():
-        if any(ipaddress.ip_address(target) in n for n in networks):
+        if target in targets:
             existing=rows('SELECT target FROM machines WHERE target=?',(target,))
             if not existing:
                 save_machine(target,mac=mac,status='Não verificada',origin='Vizinho de rede')
                 known+=1
             elif mac:
                 with db() as c:c.execute('UPDATE machines SET mac=? WHERE target=?',(mac,target))
-    audit('Descoberta multissegmento',', '.join(segments),True,f'{count}/{len(targets)} dispositivos acessíveis')
-    return {'found':count+known,'online':count,'neighbors_added':known,'tested':len(targets),'warnings':warnings,'segments':segments,
-            'note':f'{len(targets)} endereços consultados; {count} responderam; {known} vizinhos adicionais. '+ ' '.join(warnings)+' Dispositivos isolados ou desligados podem não aparecer.'}
+    audit('Descoberta multissegmento',', '.join(segments),not report['errors'] and not warnings,
+          f'{report["found"]}/{len(targets)} dispositivos acessíveis; falhas={len(report["errors"])}')
+    return {**report,'found':report['found']+known,'neighbors_added':known,'tested':len(targets),
+            'warnings':warnings,'segments':segments,
+            'note':f'{len(targets)} endereços consultados; {report["online"]} responderam; {known} vizinhos adicionais. '
+                   'Sem resposta não comprova que o dispositivo está desligado. Dispositivos isolados ou filtrados podem não aparecer.'}
 
 
 def scan_subnet(cidr):
@@ -418,19 +441,11 @@ def list_printers(target):
 
 
 def clear_printer(target, printer):
-    if not isinstance(printer, str) or not 1 <= len(printer.strip()) <= 150:
-        raise ValueError('Selecione o nome de uma impressora válida.')
-    body = '''param($p)
-      $printer=Get-Printer -Name $p -ErrorAction Stop;
-      $jobs=@(Get-PrintJob -PrinterName $printer.Name -ErrorAction Stop);
-      foreach($j in $jobs) { Remove-PrintJob -PrinterName $printer.Name -ID $j.ID -ErrorAction Stop };
-      [PSCustomObject]@{ Impressora=$printer.Name; Removidos=$jobs.Count }'''
-    return remote_script(target, body, 35, printer)
+    return printer_support.clear_queue(remote_script, target, printer)
 
 
 def restart_spooler(target):
-    return remote_script(target, '''Restart-Service -Name Spooler -Force -ErrorAction Stop;
-       [PSCustomObject]@{ Spooler=(Get-Service Spooler).Status.ToString() }''', 35)
+    return printer_support.restart_spooler(remote_script, target)
 
 
 def restart_machine(target):
@@ -699,7 +714,7 @@ def sync_zammad():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'FleuryTI/1.3.2'
+    server_version = 'FleuryTI/1.4.0'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/'):
@@ -818,6 +833,53 @@ class Handler(BaseHTTPRequestHandler):
             return self.run_read_admin('Inventário remoto', target, lambda: get_inventory(target))
         if path == '/api/admin/printers':
             return self.run_read_admin('Consultar impressoras', target, lambda: list_printers(target))
+        if path == '/api/printers/drivers/catalog':
+            return self.send(obj=printer_support.driver_catalog())
+        if path == '/api/printers/drivers/installed':
+            require_computer(target)
+            return self.run_read_admin('Consultar drivers de impressão', target,
+                lambda: printer_support.installed_drivers(remote_script, target))
+        if path == '/api/printers/diagnose':
+            require_computer(target)
+            printer = maintenance.validate_printer((params.get('printer') or [''])[0])
+            return self.run_read_admin('Diagnóstico de impressora', target,
+                lambda: printer_support.diagnose(remote_script, target, printer))
+        if path == '/api/maintenance/downloads-preview':
+            require_computer(target)
+            if not WIN:
+                raise RuntimeError('A consulta de Downloads requer Windows e WinRM.')
+            days = maintenance.validate_days((params.get('days') or ['30'])[0])
+            try:
+                result = maintenance.call(remote_script, target, maintenance.DOWNLOADS_PS,
+                                          {'days': days, 'commit': False}, timeout=180)
+                preview = maintenance.normalize_downloads_preview(result)
+                ident = secrets.token_urlsafe(24)
+                stamp = time.monotonic()
+                with LOCK:
+                    previews = getattr(self.server, 'downloads_previews', {})
+                    previews = {key: value for key, value in previews.items()
+                                if stamp - value['at'] <= 300 and value['target'] != target}
+                    if len(previews) >= 100:
+                        raise ValueError('Muitas prévias abertas; aguarde a expiração para continuar.')
+                    previews[ident] = {'at': stamp, 'target': target, 'days': days, 'preview': preview}
+                    self.server.downloads_previews = previews
+                files = [{'id': item['id'], 'name': item['relative_name'],
+                          'profile': item['profile_name'], 'bytes': item['size']}
+                         for item in preview['Arquivos']]
+                summary = {key: preview[key] for key in (
+                    'Modo', 'IdadeMinimaDias', 'PerfisInspecionados', 'PastasDownloads',
+                    'ArquivosElegiveis', 'PotencialMB', 'Falhas', 'Ignorados',
+                    'ItensInspecionados', 'LimiteAtingido', 'Aviso') if key in preview}
+                partial = bool(preview.get('Falhas') or preview.get('LimiteAtingido'))
+                audit('Prévia de Downloads', target, True,
+                      f'dias={days}; candidatos={len(files)}; nenhuma exclusão')
+                return self.send(obj={'ok': True, 'partial': partial, 'preview_id': ident,
+                    'files': files, 'result': summary, 'message':
+                    'Prévia parcial: confira falhas e limites antes de selecionar arquivos.' if partial else
+                    'Prévia concluída; nenhum arquivo foi removido.'})
+            except Exception as exc:
+                audit('Prévia de Downloads', target, False, str(exc))
+                raise
         if path == '/api/diagnostics/disk-guided':
             return self.run_read_admin('Diagnóstico orientado HD 100%', target,
                  lambda: maintenance.call(remote_script, target, software_catalog.DISK_GUIDED_PS, timeout=85))
@@ -914,6 +976,58 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_post(self, path, b):
         target = b.get('target', '')
+        if path == '/api/maintenance/downloads-cleanup':
+            require_computer(target)
+            if not WIN:
+                raise RuntimeError('A limpeza de Downloads requer Windows e WinRM.')
+            if b.get('confirm') is not True:
+                raise ValueError('Confirme a exclusão dos arquivos de Downloads selecionados.')
+            ident = b.get('preview_id')
+            if not isinstance(ident, str):
+                raise ValueError('Gere uma prévia de Downloads antes de excluir arquivos.')
+            with LOCK:
+                previews = getattr(self.server, 'downloads_previews', {})
+                saved = previews.get(ident)
+                if not saved or saved['target'] != target or time.monotonic() - saved['at'] > 300:
+                    raise ValueError('Prévia ausente ou expirada. Gere uma nova prévia para este computador.')
+                files = maintenance.select_downloads_files(saved['preview'], b.get('files'))
+                # Consumir antes do I/O: timeout pode ocorrer após exclusões, sem repetição automática.
+                previews.pop(ident)
+            try:
+                result = maintenance.call(remote_script, target, maintenance.DOWNLOADS_PS,
+                    {'days': saved['days'], 'commit': True, 'files': files}, timeout=180)
+                if not isinstance(result, dict) or any(type(result.get(key)) is not int or result[key] < 0
+                        for key in ('Falhas', 'ArquivosRemovidos')):
+                    raise RuntimeError('Resultado de Downloads inválido; confira o estado antes de gerar nova prévia.')
+                success = (result.get('Falhas') == 0
+                           and result.get('LimiteAtingido') is False
+                           and result.get('ArquivosRemovidos') == len(files))
+                audit('Limpeza selecionada de Downloads', target, success,
+                      f'selecionados={len(files)}; removidos={result.get("ArquivosRemovidos", 0)}; '
+                      f'falhas={result.get("Falhas", 0)}')
+                return self.send(obj={'ok': success, 'partial': not success, 'result': result,
+                    'message': 'Arquivos selecionados removidos.' if success else
+                    'Limpeza parcial. Confira os contadores; arquivos alterados, indisponíveis ou protegidos foram preservados.'})
+            except Exception as exc:
+                audit('Limpeza selecionada de Downloads', target, False,
+                      'Operação não concluída; gere nova prévia antes de repetir.')
+                raise
+        if path == '/api/printers/drivers/change':
+            require_computer(target)
+            if not WIN:
+                raise RuntimeError('A troca de driver requer Windows e WinRM.')
+            if b.get('confirm') is not True:
+                raise ValueError('Confirme a troca do driver na impressora selecionada.')
+            try:
+                result = printer_support.switch_driver(remote_script, target, b.get('printer'), b.get('driver'))
+                success = result.get('ok') is True
+                audit('Trocar driver Zebra', target, success,
+                      'Troca verificada.' if success else 'Troca não confirmada; confira diagnóstico.')
+                return self.send(obj={'ok': success, 'partial': result.get('partial', not success),
+                                      'message': result.get('message', ''), 'result': result})
+            except Exception:
+                audit('Trocar driver Zebra', target, False, 'Falha na troca; confira configuração e permissões.')
+                raise
         if path in ('/api/zebra/print', '/api/winutil/launch'):
             if b.get('confirm') is not True:
                 raise ValueError('Confirmação explícita obrigatória.')
@@ -981,12 +1095,11 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError('Modo de descoberta inválido.')
         if path == '/api/machines/verify':
             validate_target(target, registered=True)
-            online = ping_one(target)
-            with LOCK, db() as c:
-                c.execute('''UPDATE machines SET status=?, updated_at=?,
-                last_seen=CASE WHEN ? THEN ? ELSE last_seen END WHERE target=?''',
-                          ('Online' if online else 'Sem resposta', now(), int(online), now(), target))
-            return self.send(obj={'ok': True, 'online': online, 'note': 'ICMP pode ser bloqueado.'})
+            info = device_discovery.probe(target, ping_one)
+            record_device(target, info, origin='Verificação autorizada')
+            audit('Verificar dispositivo', target, True, 'online=' + str(info['alive']))
+            return self.send(obj={'ok': True, 'online': info['alive'], **info,
+                                 'note': 'Consulta ICMP e TCP. Sem resposta não comprova que o equipamento está desligado.'})
         if path == '/api/tickets/zammad-sync':
             try:
                 return self.send(obj=sync_zammad())
@@ -1188,8 +1301,12 @@ class Handler(BaseHTTPRequestHandler):
                     result = clear_printer(target, b.get('printer', ''))
                 else:
                     result = restart_spooler(target)
-                audit(action, target, True, json.dumps(result, ensure_ascii=False)[:500])
-                return self.send(obj={'ok':True,'result':result})
+                printer_action = path in ('/api/admin/clear-print', '/api/admin/spooler')
+                success = result.get('ok') is True if printer_action else True
+                audit(action, target, success,
+                      'Resultado verificado.' if printer_action else json.dumps(result, ensure_ascii=False)[:500])
+                return self.send(obj={'ok':success,'partial':result.get('partial', not success) if printer_action else False,
+                                      'message':result.get('message', '') if printer_action else '', 'result':result})
             except Exception as exc:
                 audit(action, target, False, str(exc))
                 raise
@@ -1203,9 +1320,10 @@ def main():
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     server.cleanup_previews = {}
     server.restore_previews = {}
+    server.downloads_previews = {}
     url = f'http://127.0.0.1:{port}/'
     print('==============================================')
-    print(' FLEURY TI CONTROL CENTER - versão 1.3.2')
+    print(' FLEURY TI CONTROL CENTER - versão 1.4.0')
     print(' Local:', url)
     print(' Usuário:', metrics()['username'])
     print(' Windows:', WIN)

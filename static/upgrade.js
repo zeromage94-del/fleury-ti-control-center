@@ -12,11 +12,24 @@ function syncGlobalTarget(){
 function setActiveTarget(target){
  S.selected=S.machines.some(m=>m.target===target)?target:null;
  S.inventory=null;S.diagnostics=null;S.restorePoints=null;S.printers=null;S.cleanupPreview=null;
+ S.downloadsPreview=null;S.downloadsSelected=new Set();
  hideMachinePopup();render();
 }
 const globalTargetSelect=document.querySelector('#global-machine-picker');
 globalTargetSelect.addEventListener('change',e=>setActiveTarget(e.target.value));
 document.querySelector('#global-add-machine').addEventListener('click',()=>act('add-machine'));
+S.downloadsDays=30;S.downloadsPreview=null;S.downloadsSelected=new Set();S.downloadsResult=null;
+function downloadsPanel(machine){
+ const preview=S.downloadsPreview?.target===machine?.target?S.downloadsPreview:null;
+ const result=S.downloadsResult?.target===machine?.target?S.downloadsResult:null;
+ const files=preview?.files||[];
+ return panel('Downloads • revisão de todos os perfis','download',`<div class="panel-body">
+ <p class="hint">Downloads pode conter arquivos pessoais. Esta opção é separada da otimização rápida: primeiro consulte os arquivos antigos, selecione individualmente e confirme a exclusão. Nada é selecionado automaticamente.</p>
+ <div class="toolbar-group"><label><span class="field-label">Idade mínima</span><select class="select" id="downloads-days">${[30,60,90,180,365].map(d=>`<option value="${d}" ${S.downloadsDays===d?'selected':''}>${d} dias</option>`).join('')}</select></label><button class="btn" data-act="downloads-preview" ${!machine?'disabled':''}>Consultar prévia de Downloads</button></div>
+ ${preview?`<p class="hint">Prévia de ${esc(preview.target)}: ${files.length} arquivo(s) elegível(is). A prévia expira; arquivos alterados, recentes, bloqueados ou em atalhos de pasta são preservados.</p>${files.length?`<div class="table-scroll"><table><thead><tr><th>Selecionar</th><th>Perfil</th><th>Arquivo</th><th>Tamanho</th></tr></thead><tbody>${files.map(f=>`<tr><td><input type="checkbox" data-download-id="${esc(f.id)}" ${S.downloadsSelected.has(f.id)?'checked':''} aria-label="Selecionar ${esc(f.name)} do perfil ${esc(f.profile)}"></td><td>${esc(f.profile)}</td><td>${esc(f.name)}</td><td>${esc((Number(f.bytes||0)/1048576).toFixed(2))} MB</td></tr>`).join('')}</tbody></table></div><p><button class="btn danger" data-act="downloads-cleanup" ${!S.downloadsSelected.size?'disabled':''}>Excluir ${S.downloadsSelected.size} arquivo(s) selecionado(s)</button></p>`:'<p>Nenhum arquivo elegível retornado nesta prévia.</p>'}${preview.result?`<details><summary>Resultado da inspeção</summary>${prettyData(preview.result)}</details>`:''}`:''}
+ ${result?`<div class="note ${result.ok===false?'red':'blue'}">${esc(result.message||'Confira o resultado da limpeza de Downloads.')}</div>${prettyData(result.result)}`:''}
+ </div>`);
+}
 // Inclui um painel próprio WinUtil, ao lado do catálogo de instalação nativo.
 // Catálogo único: atalhos legados são redirecionados para software.
 function winutil(){
@@ -33,7 +46,7 @@ scripts=function(){
  `<div class="scripts-first">${panel('Máquina para executar os scripts','monitor',`<div class="panel-body toolbar-group">${machinePicker('scripts-machine-picker')}<button class="btn" data-act="add-machine">${ico('plus')} Adicionar IP</button><button class="btn" data-act="verify">${ico('wifi')} Ping</button><span class="hint">O mesmo IP pode ser alterado no topo de qualquer tela.</span></div>`)}</div>
  <div class="scripts-hero">${panel('Otimização rápida • Todos os perfis','bolt',`<div class="panel-body"><p class="hint">Remove somente .tmp/.temp antigos de Windows\\Temp e AppData\\Local\\Temp dos perfis locais, inclusive desconectados. Preserva fotos, documentos, software e arquivos em uso. Sem simulação; executa após confirmação do técnico.</p><div class="toolbar-group"><label><span class="field-label">Idade mínima</span><select class="select" id="quick-cleanup-days">${[7,14,30,60,90].map(d=>`<option value="${d}" ${S.quickDays===d?'selected':''}>${d} dias</option>`).join('')}</select></label><button class="btn primary" data-act="quick-optimize">${ico('bolt')} Otimizar agora</button><button class="btn" data-act="cleanup-run">${ico('refresh')} Limpar temporários de todos os usuários</button></div></div>`)}
  ${panel('Restauração do sistema','clock',`<div class="panel-body"><p class="hint">Crie antes da manutenção, liste e exclua seletivamente um ponto antigo (≥ 14 dias). O ponto mais novo é protegido. Não elimina backups externos.</p><div class="toolbar-group"><button class="btn primary" data-act="restore-create">${ico('check')} Criar ponto</button><button class="btn" data-act="restore-list">${ico('list')} Listar pontos</button></div>${restoreRows}</div>`)}
- </div><div class="section-gap">${panel('Ferramentas Windows 10 / 11 e diagnóstico HD 100%','settings',`<div class="panel-body"><div class="quick-grid">
+ </div><div class="section-gap">${downloadsPanel(m)}</div><div class="section-gap">${panel('Ferramentas Windows 10 / 11 e diagnóstico HD 100%','settings',`<div class="panel-body"><div class="quick-grid">
  ${quickBtn('monitor','HD em 100%','diagnostic','Analisar I/O e eventos','data-type="disk-100"')}
  ${quickBtn('list','Disco · análise guiada','guided-disk','Espaço, disco, saúde')}
  ${quickBtn('refresh','CPU e RAM','diagnostic','Análise de desempenho','data-type="performance"')}
@@ -57,6 +70,7 @@ scripts=function(){
 // Reimplementa a renderização da última versão para registrar a nova aba;
 // não interfere nos dados armazenados, apenas troca o conteúdo visível.
 render=function(){
+ if(S.downloadsPreview&&S.downloadsPreview.target!==S.selected){S.downloadsPreview=null;S.downloadsSelected=new Set();}
  sidebar();
  const fns={dashboard,machines,remote,printers,tickets,scripts,logs,settings,assets,maintenancePage,commands,software,winutil};
  const page=S.page==='maintenance'?'maintenancePage':S.page;
@@ -73,6 +87,30 @@ switchPage=function(page){
 };
 const previousUpgradeAct=act;
 act=async function(action,data={}){
+ if(action==='downloads-preview'){
+  const m=currentMachine();if(!m)return;
+  const days=Number(document.querySelector('#downloads-days')?.value||S.downloadsDays);S.downloadsDays=days;
+  return busyCall(async()=>{
+   S.downloadsPreview=null;S.downloadsSelected=new Set();S.downloadsResult=null;render();
+   const d=await request(`maintenance/downloads-preview?target=${encodeURIComponent(m.target)}&days=${days}`);
+   if(S.selected!==m.target)return;
+   S.downloadsPreview={target:m.target,days,preview_id:d.preview_id,files:d.files||[],result:d.result};
+   render();toast(d.message||'Prévia carregada. Revise e selecione apenas os arquivos que deseja excluir.',d.ok===false);
+  },'');
+ }
+ if(action==='downloads-cleanup'){
+  const m=currentMachine(),preview=S.downloadsPreview;
+  if(!m||!preview||preview.target!==m.target)return toast('Consulte uma nova prévia para o computador selecionado.',true);
+  const files=[...S.downloadsSelected].filter(id=>preview.files.some(f=>f.id===id));
+  if(!files.length)return toast('Selecione individualmente os arquivos a excluir.',true);
+  return showModal({title:'Excluir Downloads selecionados?',danger:true,
+   desc:`Computador ${m.target}: excluir ${files.length} arquivo(s) de Downloads dos perfis listados. São arquivos pessoais; confirme que podem ser descartados. A exclusão não vai para a Lixeira. A prévia será consumida e precisará ser refeita.`,actionText:'Excluir arquivos selecionados',onConfirm:async()=>{
+    if(S.selected!==m.target||S.downloadsPreview!==preview)throw Error('O computador ou a prévia mudou. Consulte novamente.');
+    S.downloadsPreview=null;S.downloadsSelected=new Set();render();
+    const d=await request('maintenance/downloads-cleanup',{target:m.target,preview_id:preview.preview_id,files,confirm:true});
+    S.downloadsResult={target:m.target,...d};render();toast(d.message||'Confira o resultado da limpeza de Downloads.',d.ok===false);
+   }});
+ }
  if(action==='winutil-copy'){
   const command='irm https://christitus.com/win | iex';
   try{await navigator.clipboard.writeText(command);toast('Comando oficial copiado. Revise o código e execute somente em terminal autorizado.');}
@@ -85,4 +123,13 @@ act=async function(action,data={}){
 };
 main.addEventListener('change',e=>{
  if(e.target.id==='scripts-machine-picker')setActiveTarget(e.target.value);
+ if(e.target.id==='downloads-days'){
+  S.downloadsDays=Number(e.target.value);S.downloadsPreview=null;S.downloadsSelected=new Set();render();
+ }
+ if(e.target.matches?.('[data-download-id]')){
+  const preview=S.downloadsPreview,id=e.target.dataset.downloadId;
+  if(preview?.target!==S.selected||!preview.files.some(f=>f.id===id))return;
+  if(e.target.checked)S.downloadsSelected.add(id);else S.downloadsSelected.delete(id);
+  render();
+ }
 });

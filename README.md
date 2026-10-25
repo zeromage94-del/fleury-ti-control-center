@@ -1,4 +1,4 @@
-# Fleury TI Control Center 1.3.2
+# Fleury TI Control Center 1.4.0
 
 Central local de suporte Windows baseada no ZIP v1.2 fornecido pelo usuário. Python/stdlib, interface web local, SQLite e auditoria. Protótipo independente; não implica aprovação ou afiliação oficial do Grupo Fleury.
 
@@ -7,7 +7,16 @@ Central local de suporte Windows baseada no ZIP v1.2 fornecido pelo usuário. Py
 Windows 10/11 x64, Python 3.12: `python app.py`. Abra http://127.0.0.1:8765.
 Cadastre e selecione a máquina no topo. Ações remotas usam a identidade Windows do técnico e permissões WinRM/RDP existentes. O aplicativo não configura automaticamente firewall, TrustedHosts, EDR ou GPO.
 
-## Novo na v1.3
+## Novo na v1.4.0
+
+- Downloads de todos os perfis locais: prévia, seleção individual e confirmação; separado da limpeza de TEMP. Arquivos recentes, alterados, protegidos e pastas redirecionadas são preservados.
+- Diagnóstico de impressoras comuns/Zebra, resultado verificado da limpeza da fila e reinício do Spooler. Fila vazia não comprova correção de defeito físico.
+- [Catálogo local revisado de drivers Zebra](docs/DRIVERS_ZEBRA.md), validação SHA256 de INF opcional e troca para driver compatível já instalado no computador.
+- Verificação por TCP e ICMP; descoberta informa falhas individuais e atualiza computadores sem resposta.
+- Instalações conferem pacote, escopo machine e código de saída; resultados parciais e necessidade de reinício aparecem na fila.
+- Laboratório repetível: `python tests/run_simulated_lab.py`. [Cenários e limites](docs/VALIDACAO_1.4.0.md).
+
+## Recursos da v1.3
 
 - Catálogo visual por categorias, busca, seleção, recolher/expandir e consulta de instalados.
 - Instalar/desinstalar com um clique: sem modal adicional, silencioso e em fila de segundo plano. Sessão local e identidade administrativa existente continuam obrigatórias.

@@ -92,7 +92,7 @@ foreach($id in $packages){
 
  $code=$LASTEXITCODE
  $message=([string]$msg).Trim()
- $done+=[PSCustomObject]@{Pacote=[string]$id;CodigoSaida=$code;Escopo='machine';ReinicioNecessario=($code -eq 3010);Resultado=$message.Substring(0,[Math]::Min(1000,$message.Length))}
+ $done+=[PSCustomObject]@{Pacote=[string]$id;CodigoSaida=$code;Escopo='machine';ReinicioNecessario=($code -in @(3010,1641));ReinicioIniciado=($code -eq 1641);Resultado=$message.Substring(0,[Math]::Min(1000,$message.Length))}
 }
 [PSCustomObject]@{Computador=$env:COMPUTERNAME;Escopo='machine';Instalacoes=$done;Observacao='Sem fallback para usuário. Pacotes sem instalador por máquina falham explicitamente. Não configura preferências individuais nem reinicia a estação.'}
 '''
@@ -135,7 +135,7 @@ foreach($id in $packages){
 
  $code=$LASTEXITCODE
  $message=([string]$msg).Trim()
- $done+=[PSCustomObject]@{Pacote=[string]$id;CodigoSaida=$code;Escopo='machine';ReinicioNecessario=($code -eq 3010);Resultado=$message.Substring(0,[Math]::Min(1000,$message.Length))}
+ $done+=[PSCustomObject]@{Pacote=[string]$id;CodigoSaida=$code;Escopo='machine';ReinicioNecessario=($code -in @(3010,1641));ReinicioIniciado=($code -eq 1641);Resultado=$message.Substring(0,[Math]::Min(1000,$message.Length))}
 }
 [PSCustomObject]@{Computador=$env:COMPUTERNAME;Escopo='machine';Desinstalacoes=$done;Observacao='Remove instalações por máquina. Instalações individuais em outros perfis permanecem; não executa como outros usuários nem apaga seus arquivos.'}
 '''

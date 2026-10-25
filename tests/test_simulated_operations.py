@@ -88,7 +88,11 @@ class SimulatedOperations(unittest.TestCase):
         routes += [('/api/maintenance/disk-tool',{'tool':t}) for t in
                    ('dism-check','dism-repair','chkdsk-scan','sfc-scan')]
         for route,body in routes:
-            with self.subTest(route=route,body=body), patch.object(app,'remote_script',return_value={'Codigo':0}) as remote:
+            result = ({'Encontrados':2,'Removidos':2,'Restantes':0,'Falhas':0,'Spooler':'Running'}
+                      if route == '/api/admin/clear-print' else
+                      {'SpoolerAntes':'Stopped','Spooler':'Running'} if route == '/api/admin/spooler'
+                      else {'Codigo':0})
+            with self.subTest(route=route,body=body), patch.object(app,'remote_script',return_value=result) as remote:
                 with self.assertRaises(ValueError): self.post(route,confirm=False,**body)
                 remote.assert_not_called()
                 self.assertTrue(self.post(route,**body)['ok'])
@@ -167,7 +171,8 @@ class SimulatedOperations(unittest.TestCase):
                 ('local','scan_segments',{})]:
             with self.subTest(mode=mode), patch.object(app,callback,return_value={'found':1}), patch.object(app,'local_segments',return_value=['192.168.1.0/24']):
                 self.assertEqual(self.post('/api/machines/scan',mode=mode,**body)['found'],1)
-        with patch.object(app,'ping_one',return_value=True):
+        with patch.object(app.device_discovery,'probe',return_value={
+                'alive':True,'device_type':'computer','evidence':'SIM TCP','ports':[5985]}):
             self.assertTrue(self.post('/api/machines/verify')['online'])
 
     def test_zebra_catalog_print_and_timeout(self):
@@ -241,8 +246,8 @@ class SimulatedOperations(unittest.TestCase):
             state['reads']+=1
             if 'Remove-PrintJob' in script:
                 count=state['jobs'];state['jobs']=0
-                return {'Impressora':'Zebra','Removidos':count}
-            if 'Restart-Service -Name Spooler' in script:
+                return {'Impressora':'Zebra','Encontrados':count,'Removidos':count,'Restantes':0,'Falhas':0,'Spooler':state['spooler']}
+            if script == app.printer_support.RESTART_SPOOLER_PS:
                 state['spooler']='Running';return {'Spooler':'Running'}
             if 'Get-Printer' in script:
                 return [{'Name':'Zebra','PrinterStatus':'Error' if state['jobs'] else 'Normal','Jobs':state['jobs']}]
@@ -269,7 +274,7 @@ class SimulatedOperations(unittest.TestCase):
         def execute(target,operation,ids):
             if target=='PC-SIM':entered.set();release.wait(3)
             else:other.set()
-            return {'Instalacoes':[{'CodigoSaida':0}]}
+            return {'Escopo':'machine','Instalacoes':[{'Pacote':ids[0],'CodigoSaida':0,'Escopo':'machine'}]}
         manager=software_jobs.Manager(app.db,app.audit,app.now,execute)
         try:
             manager.submit('PC-SIM','install',['7zip'],['7zip.7zip'])

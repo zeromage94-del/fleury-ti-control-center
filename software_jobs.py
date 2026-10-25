@@ -4,6 +4,36 @@ import hashlib
 import json
 import threading
 import uuid
+import software_catalog
+
+
+SUCCESS_CODES = (0, 3010, 1641)
+
+
+def summarize(result, operation, ids):
+    """Confirm every requested package and its machine scope before success."""
+    if not isinstance(result, dict):
+        return False, 'Resposta inválida: resultado da implantação não é um objeto.'
+    items = result.get('Instalacoes' if operation == 'install' else 'Desinstalacoes')
+    if isinstance(items, dict):
+        items = [items]
+    if not isinstance(items, list) or any(not isinstance(x, dict) for x in items):
+        return False, 'Resposta inválida: faltam resultados por pacote.'
+    received = [x.get('Pacote') for x in items]
+    if len(items) != len(ids) or any(not isinstance(x, str) for x in received) or set(received) != set(ids) or len(set(received)) != len(received):
+        return False, 'Resultado incompleto ou divergente dos pacotes solicitados; verifique cada pacote antes de repetir.'
+    if result.get('Escopo') != 'machine' or any(x.get('Escopo') != 'machine' for x in items):
+        return False, 'O resultado não confirma escopo machine para todos os pacotes. Nenhum fallback para usuário foi autorizado.'
+    valid_codes = [type(x.get('CodigoSaida')) is int and x['CodigoSaida'] in SUCCESS_CODES for x in items]
+    result['Resumo'] = {
+        'Solicitados': len(ids), 'Concluidos': sum(valid_codes),
+        'Falhas': len(ids) - sum(valid_codes),
+        'ReinicioNecessario': any(x.get('CodigoSaida') in (3010, 1641) for x in items),
+        'ReinicioIniciadoPeloInstalador': any(x.get('CodigoSaida') == 1641 for x in items),
+    }
+    if not all(valid_codes):
+        return False, 'Consulte os códigos de saída por pacote. Nenhum fallback para usuário foi executado.'
+    return True, ''
 
 
 class Manager:
@@ -18,6 +48,10 @@ class Manager:
             c.execute("UPDATE software_jobs SET state='interrupted',updated_at=? WHERE state IN ('queued','running')",(self.now(),))
 
     def submit(self, target, operation, keys, ids):
+        if operation not in ('install', 'uninstall'):
+            raise ValueError('Operação de software inválida.')
+        if software_catalog.validate_packages(keys) != ids:
+            raise ValueError('IDs não correspondem aos pacotes autorizados.')
         fingerprint = hashlib.sha256(json.dumps([target.lower(),operation,sorted(keys)]).encode()).hexdigest()
         with self.lock, self.db() as c:
             old = c.execute("SELECT id FROM software_jobs WHERE fingerprint=? AND state IN ('queued','running')",(fingerprint,)).fetchone()
@@ -29,7 +63,15 @@ class Manager:
             c.execute('INSERT INTO software_jobs(id,target,operation,packages,state,created_at,updated_at,fingerprint) VALUES(?,?,?,?,?,?,?,?)',
                       (ident,target,operation,json.dumps(keys),'queued',self.now(),self.now(),fingerprint))
         self.audit('Software em fila: '+operation,target,True,'job='+ident+'; escopo=machine; '+', '.join(ids))
-        self.pool.submit(self.run,ident,target,operation,ids)
+        try:
+            self.pool.submit(self.run,ident,target,operation,ids)
+        except RuntimeError:
+            # A closed executor must not leave a persistent phantom queued job.
+            with self.db() as c:
+                c.execute("UPDATE software_jobs SET state='failed',error=?,updated_at=? WHERE id=?",
+                          ('Fila de execução indisponível; nenhuma instalação foi iniciada.',self.now(),ident))
+            self.audit('Software não iniciado: '+operation,target,False,'job='+ident+'; fila indisponível')
+            raise RuntimeError('Fila de execução indisponível; nenhuma instalação foi iniciada.') from None
         return {'job_id':ident,'duplicate':False}
 
     def run(self, ident, target, operation, ids):
@@ -40,11 +82,8 @@ class Manager:
                 c.execute("UPDATE software_jobs SET state='running',updated_at=? WHERE id=?",(self.now(),ident))
             try:
                 result = self.execute(target,operation,ids)
-                items = result.get('Instalacoes' if operation=='install' else 'Desinstalacoes',[])
-                if isinstance(items,dict): items=[items]
-                success = len(items)==len(ids) and all(x.get('CodigoSaida') in (0,3010) for x in items)
+                success, error = summarize(result, operation, ids)
                 state = 'succeeded' if success else 'failed'
-                error = '' if success else 'Consulte os códigos de saída por pacote. Nenhum fallback para usuário foi executado.'
             except Exception as exc:
                 result, state, error = {}, 'failed', str(exc)[:700]
             with self.db() as c:

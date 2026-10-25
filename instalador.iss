@@ -1,5 +1,5 @@
 #define MyAppName "Fleury TI Control Center"
-#define MyAppVersion "1.3.2"
+#define MyAppVersion "1.4.0"
 #define MyAppPublisher "Ferramenta de TI - protótipo independente"
 #define MyAppExeName "FleuryTIControlCenter.exe"
 [Setup]
@@ -10,7 +10,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\Fleury TI Control Center
 DefaultGroupName=Fleury TI Control Center
 OutputDir=entrega_windows
-OutputBaseFilename=Fleury_TI_Instalador_v1.3.2_Windows_x64
+OutputBaseFilename=Fleury_TI_Instalador_v1.4.0_Windows_x64
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

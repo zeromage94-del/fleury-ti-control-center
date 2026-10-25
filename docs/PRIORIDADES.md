@@ -1,5 +1,7 @@
 # Tarefas prioritárias
 
+- v1.4.0: regressão simulada de rede, filas, 47 pacotes, Downloads seletivo e catálogo revisado implementada; resultados em VALIDACAO_1.4.0.md e STATUS.md. Confirmar o build Windows do commit e continuar a homologação física abaixo.
+
 - P0: homologar WinRM, RDP, limpeza de TEMP e restauração numa VM Windows de teste; verificar auditoria e recuperação.
 - P0: validar Zebra real de homologação; cadastrar impressora/modelo no zpl-rest e imprimir etiqueta com dados fictícios. Não repetir automaticamente pedidos após timeout.
 - P1: validar token Zammad com menor privilégio e testar importação, estados personalizados e limite de 300 registros. Escrita externa ainda não implementada.

@@ -4,7 +4,9 @@ Usa a identidade Windows do técnico; não armazena senha, não altera proteçã
 antifraude de pagamentos, e não apaga perfis nem arquivos pessoais.
 """
 import json
+import ntpath
 import re
+import secrets
 
 # Um argumento JSON é entregue ao ScriptBlock, sem interpolar conteúdo remoto em código.
 def call(remote_script, target, body, config=None, timeout=70):
@@ -50,6 +52,15 @@ $limit=12000; $visited=0; $capped=$false
 foreach($root in $roots){
  if($capped){ break }
  if(-not [IO.Directory]::Exists($root)){ continue }
+ # Verify every ancestor too: a junction at the TEMP root must not be followed.
+ try{
+  $full=[IO.Path]::GetFullPath($root)
+  $ancestor=[IO.Path]::GetPathRoot($full)
+  foreach($part in $full.Substring($ancestor.Length).Split([char]'\')){
+   if($part){$ancestor=Join-Path $ancestor $part}
+   if(([IO.File]::GetAttributes($ancestor) -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'TEMP redirecionado preservado.'}
+  }
+ }catch{$failures++;continue}
  $queue=New-Object 'System.Collections.Generic.Queue[object]'
  $queue.Enqueue(@{Path=$root;Depth=0})
  while($queue.Count -gt 0){
@@ -63,6 +74,7 @@ foreach($root in $roots){
     if(($attrs -band [IO.FileAttributes]::ReparsePoint) -ne 0){ $skipped++; continue }
     if(($attrs -band [IO.FileAttributes]::Directory) -ne 0){
      if([int]$entry.Depth -lt 5){ $queue.Enqueue(@{Path=$item;Depth=([int]$entry.Depth+1)}) }
+     else{$capped=$true}
      continue
     }
     $fi=New-Object IO.FileInfo($item)
@@ -91,6 +103,126 @@ foreach($root in $roots){
  Falhas=$failures; Ignorados=$skipped; ItensInspecionados=$visited
  LimiteAtingido=$capped
  Aviso='Somente arquivos .tmp/.temp antigos em TEMP. Preserva logs, imagens, documentos, etiquetas e demais formatos. Arquivos em uso são ignorados.'
+}'''
+
+# Downloads é uma operação separada: primeiro listar, depois remover somente os
+# IDs escolhidos na prévia retida pelo servidor. Nunca entra na otimização rápida.
+DOWNLOADS_PS = r'''param($json)
+$ErrorActionPreference='Stop'
+$cfg=$json | ConvertFrom-Json
+$days=[int]$cfg.days
+if($days -lt 7 -or $days -gt 365){ throw 'Idade mínima de 7 a 365 dias.' }
+$commit=($cfg.commit -eq $true)
+$cutoff=(Get-Date).ToUniversalTime().AddDays(-$days)
+$limit=12000; $maxFiles=200
+$files=New-Object System.Collections.Generic.List[object]
+$results=New-Object System.Collections.Generic.List[object]
+$failures=0; $skipped=0; $visited=0; $deleted=0; $freed=[long]0; $bytes=[long]0
+$capped=$false; $depthLimited=$false
+# Reject junctions on every ancestor, including the profile and Downloads root.
+function Assert-OrdinaryDirectory([string]$path){
+ $full=[IO.Path]::GetFullPath($path)
+ if($full -notmatch '^[A-Za-z]:\\'){throw 'Somente perfis em disco local.'}
+ $part=[IO.Path]::GetPathRoot($full)
+ foreach($name in $full.Substring($part.Length).Split([char]'\')){
+  if($name){$part=Join-Path $part $name}
+  $attrs=[IO.File]::GetAttributes($part)
+  if(($attrs -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Ponto de redirecionamento ignorado.'}
+  if(($attrs -band [IO.FileAttributes]::Directory) -eq 0){throw 'Pasta inválida.'}
+ }
+}
+function Get-DownloadSnapshot([string]$path,[string]$root,[string]$profile){
+ $full=[IO.Path]::GetFullPath($path)
+ if(-not $full.StartsWith($root.TrimEnd([char]'\')+'\',[StringComparison]::OrdinalIgnoreCase)){
+  throw 'Arquivo fora de Downloads.'
+ }
+ Assert-OrdinaryDirectory ([IO.Path]::GetDirectoryName($full))
+ $attrs=[IO.File]::GetAttributes($full)
+ if(($attrs -band ([IO.FileAttributes]::ReparsePoint -bor [IO.FileAttributes]::Directory -bor [IO.FileAttributes]::System -bor [IO.FileAttributes]::Hidden)) -ne 0){
+  throw 'Arquivo especial ignorado.'
+ }
+ $file=New-Object IO.FileInfo($full)
+ if($file.LastWriteTimeUtc -ge $cutoff){throw 'Arquivo recente preservado.'}
+ if($file.Extension.ToLowerInvariant() -in @('.crdownload','.part','.partial','.download')){
+  throw 'Download incompleto preservado.'
+ }
+ [PSCustomObject]@{path=$full;root=$root;profile=$profile;size=[long]$file.Length;
+  mtime_ticks=[string]$file.LastWriteTimeUtc.Ticks;creation_ticks=[string]$file.CreationTimeUtc.Ticks}
+}
+$profiles=@(Get-CimInstance Win32_UserProfile -ErrorAction Stop | Where-Object {
+ -not $_.Special -and $_.LocalPath -match '^[A-Za-z]:\\.+'})
+$roots=@{}
+foreach($profile in $profiles){
+ try{
+  $p=[IO.Path]::GetFullPath([string]$profile.LocalPath).TrimEnd([char]'\')
+  if($p -eq [IO.Path]::GetPathRoot($p).TrimEnd([char]'\')){continue}
+  $root=Join-Path $p 'Downloads'
+  if(-not [IO.Directory]::Exists($root)){continue}
+  Assert-OrdinaryDirectory $root
+  $roots[$root]=$p
+ }catch{$skipped++}
+}
+if($commit){
+ $selected=@($cfg.files)
+ if($selected.Count -lt 1 -or $selected.Count -gt $maxFiles){throw 'Selecione de 1 a 200 arquivos da prévia.'}
+ $seen=@{}
+ foreach($entry in $selected){
+  $status='preservado';$reason='Arquivo alterado ou indisponível.'
+  try{
+   $root=[string]$entry.root;$path=[string]$entry.path
+   if(-not $roots.ContainsKey($root) -or [string]$entry.profile -ne [string]$roots[$root]){throw 'Perfil ou pasta não autorizado.'}
+   if($seen.ContainsKey($path)){throw 'Arquivo duplicado.'};$seen[$path]=$true
+   $current=Get-DownloadSnapshot $path $root ([string]$roots[$root])
+   if([long]$current.size -ne [long]$entry.size -or $current.mtime_ticks -cne [string]$entry.mtime_ticks -or $current.creation_ticks -cne [string]$entry.creation_ticks){
+    throw 'Arquivo alterado após a prévia; execute nova simulação.'
+   }
+   # Check sharing/access before deletion; in-use and read-only files stay intact.
+   $handle=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+   try{
+    $locked=Get-DownloadSnapshot $path $root ([string]$roots[$root])
+    if($locked.size -ne $current.size -or $locked.mtime_ticks -cne $current.mtime_ticks -or $locked.creation_ticks -cne $current.creation_ticks){throw 'Arquivo alterado durante a validação.'}
+   }finally{$handle.Dispose()}
+   [IO.File]::Delete($path)
+   $deleted++;$freed += [long]$current.size;$status='removido';$reason='Selecionado e validado.'
+  }catch{$failures++;$reason=$_.Exception.Message}
+  $results.Add([PSCustomObject]@{Nome=[IO.Path]::GetFileName([string]$entry.path);Status=$status;Motivo=$reason})
+ }
+}else{
+ foreach($root in @($roots.Keys | Sort-Object)){
+  if($capped){break}
+  $queue=New-Object 'System.Collections.Generic.Queue[object]'
+  $queue.Enqueue(@{Path=$root;Depth=0})
+  while($queue.Count -gt 0){
+   $entry=$queue.Dequeue()
+   try{Assert-OrdinaryDirectory ([string]$entry.Path);$items=[IO.Directory]::GetFileSystemEntries([string]$entry.Path)}catch{$failures++;continue}
+   foreach($item in $items){
+    $visited++
+    if($visited -gt $limit){$capped=$true;break}
+    try{
+     $attrs=[IO.File]::GetAttributes($item)
+     if(($attrs -band [IO.FileAttributes]::ReparsePoint) -ne 0){$skipped++;continue}
+     if(($attrs -band [IO.FileAttributes]::Directory) -ne 0){
+      if([int]$entry.Depth -lt 5){$queue.Enqueue(@{Path=$item;Depth=([int]$entry.Depth+1)})}else{$depthLimited=$true}
+      continue
+     }
+     try{$snapshot=Get-DownloadSnapshot $item $root ([string]$roots[$root])}catch{$skipped++;continue}
+     if($files.Count -ge $maxFiles){$capped=$true;break}
+     $files.Add($snapshot);$bytes += [long]$snapshot.size
+    }catch{$failures++}
+   }
+   if($capped){break}
+  }
+ }
+}
+[PSCustomObject]@{
+ Modo=$(if($commit){'Downloads: seleção executada'}else{'Prévia Downloads; nada foi apagado'})
+ IdadeMinimaDias=$days;PerfisInspecionados=$profiles.Count;PastasDownloads=$roots.Count
+ Arquivos=@($files.ToArray());Resultados=@($results.ToArray())
+ ArquivosElegiveis=$files.Count;PotencialMB=[math]::Round($bytes/1MB,1)
+ ArquivosRemovidos=$deleted;LiberadosMB=[math]::Round($freed/1MB,1)
+ Falhas=$failures;Ignorados=$skipped;ItensInspecionados=$visited
+ LimiteAtingido=($capped -or $depthLimited)
+ Aviso='Arquivos pessoais: remoção definitiva somente dos itens selecionados. Pastas Downloads padrão dos perfis locais; pastas redirecionadas/reparse points, arquivos recentes, ocultos, de sistema e downloads incompletos são preservados. Prévia limitada a 200 arquivos, 12000 itens e seis níveis.'
 }'''
 
 # Otimização expressa = apenas a limpeza conservadora de TEMP + medição de espaço.
@@ -207,6 +339,8 @@ $s.Refresh()
 
 
 def validate_days(days):
+    if isinstance(days, bool) or not isinstance(days, (str, int)):
+        raise ValueError('Informe idade mínima inteira para os arquivos.')
     try:
         days = int(days)
     except (TypeError, ValueError):
@@ -214,6 +348,79 @@ def validate_days(days):
     if not 7 <= days <= 365:
         raise ValueError('Idade mínima de 7 a 365 dias.')
     return days
+
+
+DOWNLOADS_MAX_FILES = 200
+
+
+def normalize_downloads_preview(result):
+    """Validate remote metadata before storing a server-side deletion manifest.
+
+    Browser clients receive only id, relative_name, profile_name and size; absolute
+    paths and timestamps remain on the server. No path supplied by the browser
+    may be used to construct the execution manifest.
+    """
+    if not isinstance(result, dict) or not isinstance(result.get('Arquivos'), list):
+        raise ValueError('Prévia de Downloads inválida.')
+    if len(result['Arquivos']) > DOWNLOADS_MAX_FILES:
+        raise ValueError('Prévia excede o limite de arquivos.')
+    normalized = dict(result)
+    files, seen = [], set()
+    for entry in result['Arquivos']:
+        if not isinstance(entry, dict):
+            raise ValueError('Arquivo inválido na prévia.')
+        paths = {}
+        for key in ('path', 'root', 'profile'):
+            value = entry.get(key)
+            if (not isinstance(value, str) or not re.match(r'^[A-Za-z]:\\', value)
+                    or any(ord(ch) < 32 for ch in value)
+                    or any(part in ('.', '..') for part in value.split('\\'))
+                    or '/' in value or ':' in value[2:]):
+                raise ValueError('Caminho inválido na prévia de Downloads.')
+            paths[key] = ntpath.normpath(value)
+        path, root, profile = (paths[k] for k in ('path', 'root', 'profile'))
+        if (ntpath.normcase(ntpath.join(profile, 'Downloads')) != ntpath.normcase(root)
+                or ntpath.dirname(profile) == profile
+                or ntpath.normcase(path) == ntpath.normcase(root)):
+            raise ValueError('Arquivo fora da pasta Downloads do perfil.')
+        try:
+            inside = ntpath.commonpath([path, root])
+        except ValueError as exc:
+            raise ValueError('Arquivo fora da pasta Downloads do perfil.') from exc
+        if ntpath.normcase(inside) != ntpath.normcase(root):
+            raise ValueError('Arquivo fora da pasta Downloads do perfil.')
+        key = ntpath.normcase(path)
+        if key in seen:
+            raise ValueError('Arquivo duplicado na prévia.')
+        seen.add(key)
+        size = entry.get('size')
+        if isinstance(size, bool) or not isinstance(size, int) or not 0 <= size <= 2**63-1:
+            raise ValueError('Tamanho inválido na prévia.')
+        ticks = {}
+        for name in ('mtime_ticks', 'creation_ticks'):
+            value = entry.get(name)
+            if not isinstance(value, str) or not re.fullmatch(r'[0-9]{1,19}', value) or int(value) <= 0:
+                raise ValueError('Identidade do arquivo inválida na prévia.')
+            ticks[name] = value
+        files.append({**paths, **ticks, 'size': size,
+                      'id': secrets.token_urlsafe(18),
+                      'relative_name': ntpath.relpath(path, root),
+                      'profile_name': ntpath.basename(profile)})
+    normalized['Arquivos'] = files
+    return normalized
+
+
+def select_downloads_files(preview, ids):
+    """Return only immutable server-side metadata for explicitly selected IDs."""
+    if (not isinstance(ids, list) or not 1 <= len(ids) <= DOWNLOADS_MAX_FILES
+            or any(not isinstance(ident, str) for ident in ids)
+            or len(set(ids)) != len(ids)):
+        raise ValueError('Selecione de 1 a 200 arquivos distintos da prévia.')
+    entries = {entry['id']: entry for entry in preview['Arquivos']}
+    if any(ident not in entries for ident in ids):
+        raise ValueError('Arquivo não pertence à prévia de Downloads.')
+    names = ('path', 'root', 'profile', 'size', 'mtime_ticks', 'creation_ticks')
+    return [{name: entries[ident][name] for name in names} for ident in ids]
 
 
 def validate_printer(printer):
