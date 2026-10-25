@@ -1,4 +1,10 @@
-# Estado atual: v1.4.1
+# Estado atual: v1.4.2
+
+Downloads: uma única ação exclui todos os arquivos e subpastas vazias das pastas Downloads de todos os perfis locais do computador selecionado. Sem prévia, seleção, confirmação, filtro por idade ou limite de candidatos/profundidade. A pasta Downloads de cada perfil é preservada. Arquivos em uso, permissões negadas, links e pastas redirecionadas ficam explícitos no resultado parcial; sessão, alvo, auditoria e bloqueio de concorrência permanecem ativos.
+
+Validação Linux: 105 testes descobertos, 96 aprovados e 9 casos nativos reservados ao Windows. Execução `f5ab51b4-1de4-440d-9bd3-4a45069fa97b`. Teste JavaScript de clique único sem solicitação de prévia/seleção aprovado. Build Windows desta revisão ainda em preparação.
+
+## Histórico: v1.4.1
 
 Downloads: o clique em **Excluir selecionados** executa diretamente, sem modal nem campo de confirmação adicional. Prévia, seleção explícita, sessão, expiração, execução única e auditoria preservadas. Cinco testes HTTP de Downloads e o smoke JavaScript aprovados localmente.
 

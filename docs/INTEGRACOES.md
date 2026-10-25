@@ -4,7 +4,7 @@
 
 Consulte [DRIVERS_ZEBRA.md](DRIVERS_ZEBRA.md) para configurar `FLEURY_ZEBRA_DRIVER_REPOSITORY`. O catálogo não instala pacotes; a troca confirmada usa um driver revisado já instalado no computador da fila.
 
-A limpeza de Downloads fica em Scripts, separada de TEMP. Consulte a prévia, selecione os arquivos antigos e clique em Excluir selecionados: a exclusão definitiva começa diretamente, sem confirmação adicional. Ela cobre apenas pastas Downloads padrão de perfis locais não especiais; não segue redirecionamentos, links ou pastas de rede. Máximo de 200 candidatos por prévia, 12000 itens e seis níveis de inspeção; resultados limitados ou com falhas são informados como parciais. A prévia expira em cinco minutos e é consumida antes da execução; não há repetição automática após timeout.
+A limpeza de Downloads fica em Scripts, separada de TEMP. O botão Excluir todos os Downloads de todos os usuários executa a exclusão definitiva em uma única solicitação, sem prévia, seleção, idade mínima ou confirmação adicional. Percorre recursivamente as pastas Downloads padrão dos perfis locais não especiais, incluindo perfis desconectados, arquivos recentes, todos os formatos e subpastas. Remove arquivos somente leitura quando há permissão e subpastas que ficarem vazias, preservando a pasta Downloads de cada perfil. Não há limite de 200 candidatos nem de seis níveis. Links, junctions e pastas redirecionadas não são seguidos; arquivos em uso, acessos negados e itens ignorados aparecem nos contadores e impedem sucesso integral. O alvo e a sessão continuam validados, apenas uma limpeza simultânea por computador é aceita e não há repetição automática após timeout. Perfis de sistema e arquivos fora de Downloads são preservados.
 
 ## Zebra / zpl-rest
 

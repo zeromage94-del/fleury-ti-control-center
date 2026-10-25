@@ -54,6 +54,7 @@ DB = DATA / 'fleury_ti.db'
 WIN = os.name == 'nt'
 TOKEN = secrets.token_urlsafe(36)
 LOCK = threading.RLock()
+DOWNLOADS_ACTIVE = set()
 HOST_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]{0,126}$')
 STATUSES = {'Aberto', 'Em andamento', 'Pendente', 'Resolvido'}
 PRIORITIES = {'Baixa', 'Média', 'Alta', 'Crítica'}
@@ -714,7 +715,7 @@ def sync_zammad():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'FleuryTI/1.4.1'
+    server_version = 'FleuryTI/1.4.2'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/'):
@@ -844,42 +845,6 @@ class Handler(BaseHTTPRequestHandler):
             printer = maintenance.validate_printer((params.get('printer') or [''])[0])
             return self.run_read_admin('Diagnóstico de impressora', target,
                 lambda: printer_support.diagnose(remote_script, target, printer))
-        if path == '/api/maintenance/downloads-preview':
-            require_computer(target)
-            if not WIN:
-                raise RuntimeError('A consulta de Downloads requer Windows e WinRM.')
-            days = maintenance.validate_days((params.get('days') or ['30'])[0])
-            try:
-                result = maintenance.call(remote_script, target, maintenance.DOWNLOADS_PS,
-                                          {'days': days, 'commit': False}, timeout=180)
-                preview = maintenance.normalize_downloads_preview(result)
-                ident = secrets.token_urlsafe(24)
-                stamp = time.monotonic()
-                with LOCK:
-                    previews = getattr(self.server, 'downloads_previews', {})
-                    previews = {key: value for key, value in previews.items()
-                                if stamp - value['at'] <= 300 and value['target'] != target}
-                    if len(previews) >= 100:
-                        raise ValueError('Muitas prévias abertas; aguarde a expiração para continuar.')
-                    previews[ident] = {'at': stamp, 'target': target, 'days': days, 'preview': preview}
-                    self.server.downloads_previews = previews
-                files = [{'id': item['id'], 'name': item['relative_name'],
-                          'profile': item['profile_name'], 'bytes': item['size']}
-                         for item in preview['Arquivos']]
-                summary = {key: preview[key] for key in (
-                    'Modo', 'IdadeMinimaDias', 'PerfisInspecionados', 'PastasDownloads',
-                    'ArquivosElegiveis', 'PotencialMB', 'Falhas', 'Ignorados',
-                    'ItensInspecionados', 'LimiteAtingido', 'Aviso') if key in preview}
-                partial = bool(preview.get('Falhas') or preview.get('LimiteAtingido'))
-                audit('Prévia de Downloads', target, True,
-                      f'dias={days}; candidatos={len(files)}; nenhuma exclusão')
-                return self.send(obj={'ok': True, 'partial': partial, 'preview_id': ident,
-                    'files': files, 'result': summary, 'message':
-                    'Prévia parcial: confira falhas e limites antes de selecionar arquivos.' if partial else
-                    'Prévia concluída; nenhum arquivo foi removido.'})
-            except Exception as exc:
-                audit('Prévia de Downloads', target, False, str(exc))
-                raise
         if path == '/api/diagnostics/disk-guided':
             return self.run_read_admin('Diagnóstico orientado HD 100%', target,
                  lambda: maintenance.call(remote_script, target, software_catalog.DISK_GUIDED_PS, timeout=85))
@@ -980,36 +945,38 @@ class Handler(BaseHTTPRequestHandler):
             require_computer(target)
             if not WIN:
                 raise RuntimeError('A limpeza de Downloads requer Windows e WinRM.')
-            ident = b.get('preview_id')
-            if not isinstance(ident, str):
-                raise ValueError('Gere uma prévia de Downloads antes de excluir arquivos.')
+            # One click authorizes the full, predefined Downloads scope. No paths from HTTP.
+            key = target.casefold()
             with LOCK:
-                previews = getattr(self.server, 'downloads_previews', {})
-                saved = previews.get(ident)
-                if not saved or saved['target'] != target or time.monotonic() - saved['at'] > 300:
-                    raise ValueError('Prévia ausente ou expirada. Gere uma nova prévia para este computador.')
-                files = maintenance.select_downloads_files(saved['preview'], b.get('files'))
-                # Consumir antes do I/O: timeout pode ocorrer após exclusões, sem repetição automática.
-                previews.pop(ident)
+                if key in DOWNLOADS_ACTIVE:
+                    raise ValueError('A limpeza de Downloads já está em execução neste computador.')
+                DOWNLOADS_ACTIVE.add(key)
             try:
-                result = maintenance.call(remote_script, target, maintenance.DOWNLOADS_PS,
-                    {'days': saved['days'], 'commit': True, 'files': files}, timeout=180)
-                if not isinstance(result, dict) or any(type(result.get(key)) is not int or result[key] < 0
-                        for key in ('Falhas', 'ArquivosRemovidos')):
-                    raise RuntimeError('Resultado de Downloads inválido; confira o estado antes de gerar nova prévia.')
-                success = (result.get('Falhas') == 0
-                           and result.get('LimiteAtingido') is False
-                           and result.get('ArquivosRemovidos') == len(files))
-                audit('Limpeza selecionada de Downloads', target, success,
-                      f'selecionados={len(files)}; removidos={result.get("ArquivosRemovidos", 0)}; '
-                      f'falhas={result.get("Falhas", 0)}')
-                return self.send(obj={'ok': success, 'partial': not success, 'result': result,
-                    'message': 'Arquivos selecionados removidos.' if success else
-                    'Limpeza parcial. Confira os contadores; arquivos alterados, indisponíveis ou protegidos foram preservados.'})
-            except Exception as exc:
-                audit('Limpeza selecionada de Downloads', target, False,
-                      'Operação não concluída; gere nova prévia antes de repetir.')
+                result = maintenance.call(remote_script, target, maintenance.DOWNLOADS_PS, timeout=900)
+                counters = ('PerfisInspecionados', 'PastasDownloads', 'PastasIgnoradas',
+                            'ArquivosEncontrados', 'ArquivosRemovidos', 'Falhas', 'Ignorados')
+                if (not isinstance(result, dict) or any(type(result.get(name)) is not int or result[name] < 0
+                        for name in counters) or result['ArquivosRemovidos'] > result['ArquivosEncontrados']):
+                    raise RuntimeError('Resultado de Downloads inválido; confira o estado antes de repetir.')
+                success = (result['Falhas'] == 0 and result['Ignorados'] == 0
+                           and result['PastasIgnoradas'] == 0
+                           and result['ArquivosRemovidos'] == result['ArquivosEncontrados'])
+                message = ('Limpeza integral de Downloads concluída.' if success else
+                           'Limpeza parcial: confira arquivos em uso, permissões e pastas ignoradas no resultado.')
+                if success and result['PastasDownloads'] == 0:
+                    message = 'Nenhuma pasta Downloads padrão encontrada nos perfis locais.'
+                audit('Limpeza integral de Downloads', target, success,
+                      f'pastas={result["PastasDownloads"]}; encontrados={result["ArquivosEncontrados"]}; '
+                      f'removidos={result["ArquivosRemovidos"]}; falhas={result["Falhas"]}; '
+                      f'ignorados={result["Ignorados"]}; pastasIgnoradas={result["PastasIgnoradas"]}')
+                return self.send(obj={'ok': success, 'partial': not success, 'result': result, 'message': message})
+            except Exception:
+                audit('Limpeza integral de Downloads', target, False,
+                      'Operação não concluída; confira o estado antes de repetir. Sem repetição automática.')
                 raise
+            finally:
+                with LOCK:
+                    DOWNLOADS_ACTIVE.discard(key)
         if path == '/api/printers/drivers/change':
             require_computer(target)
             if not WIN:
@@ -1318,10 +1285,9 @@ def main():
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     server.cleanup_previews = {}
     server.restore_previews = {}
-    server.downloads_previews = {}
     url = f'http://127.0.0.1:{port}/'
     print('==============================================')
-    print(' FLEURY TI CONTROL CENTER - versão 1.4.1')
+    print(' FLEURY TI CONTROL CENTER - versão 1.4.2')
     print(' Local:', url)
     print(' Usuário:', metrics()['username'])
     print(' Windows:', WIN)

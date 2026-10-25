@@ -216,7 +216,6 @@ class CorporateNetworkScenarios(unittest.TestCase):
         self.server = app.ThreadingHTTPServer(('127.0.0.1', 0), app.Handler)
         self.server.cleanup_previews = {}
         self.server.restore_previews = {}
-        self.server.downloads_previews = {}
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.stack.callback(self.close_server)

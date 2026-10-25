@@ -12,21 +12,20 @@ function syncGlobalTarget(){
 function setActiveTarget(target){
  S.selected=S.machines.some(m=>m.target===target)?target:null;
  S.inventory=null;S.diagnostics=null;S.restorePoints=null;S.printers=null;S.cleanupPreview=null;
- S.downloadsPreview=null;S.downloadsSelected=new Set();
  hideMachinePopup();render();
 }
 const globalTargetSelect=document.querySelector('#global-machine-picker');
 globalTargetSelect.addEventListener('change',e=>setActiveTarget(e.target.value));
 document.querySelector('#global-add-machine').addEventListener('click',()=>act('add-machine'));
-S.downloadsDays=30;S.downloadsPreview=null;S.downloadsSelected=new Set();S.downloadsResult=null;
+S.downloadsResult=null;
 function downloadsPanel(machine){
- const preview=S.downloadsPreview?.target===machine?.target?S.downloadsPreview:null;
+ const valid=machine&&deviceType(machine)==='computer';
  const result=S.downloadsResult?.target===machine?.target?S.downloadsResult:null;
- const files=preview?.files||[];
- return panel('Downloads • revisão de todos os perfis','download',`<div class="panel-body">
- <p class="hint">Consulte os arquivos antigos e selecione os itens. O clique em Excluir selecionados remove os arquivos definitivamente, sem confirmação adicional. Nada é selecionado automaticamente.</p>
- <div class="toolbar-group"><label><span class="field-label">Idade mínima</span><select class="select" id="downloads-days">${[30,60,90,180,365].map(d=>`<option value="${d}" ${S.downloadsDays===d?'selected':''}>${d} dias</option>`).join('')}</select></label><button class="btn" data-act="downloads-preview" ${!machine?'disabled':''}>Consultar prévia de Downloads</button></div>
- ${preview?`<p class="hint">Prévia de ${esc(preview.target)}: ${files.length} arquivo(s) elegível(is). A prévia expira; arquivos alterados, recentes, bloqueados ou em atalhos de pasta são preservados.</p>${files.length?`<div class="table-scroll"><table><thead><tr><th>Selecionar</th><th>Perfil</th><th>Arquivo</th><th>Tamanho</th></tr></thead><tbody>${files.map(f=>`<tr><td><input type="checkbox" data-download-id="${esc(f.id)}" ${S.downloadsSelected.has(f.id)?'checked':''} aria-label="Selecionar ${esc(f.name)} do perfil ${esc(f.profile)}"></td><td>${esc(f.profile)}</td><td>${esc(f.name)}</td><td>${esc((Number(f.bytes||0)/1048576).toFixed(2))} MB</td></tr>`).join('')}</tbody></table></div><p><button class="btn danger" data-act="downloads-cleanup" ${!S.downloadsSelected.size?'disabled':''}>Excluir ${S.downloadsSelected.size} arquivo(s) selecionado(s)</button></p>`:'<p>Nenhum arquivo elegível retornado nesta prévia.</p>'}${preview.result?`<details><summary>Resultado da inspeção</summary>${prettyData(preview.result)}</details>`:''}`:''}
+ return panel('Downloads • todos os usuários','download',`<div class="panel-body">
+ <p class="hint">O clique exclui definitivamente todos os arquivos de Downloads de todos os perfis locais do computador selecionado, incluindo subpastas, arquivos recentes e todos os formatos. Sem prévia, seleção ou confirmação adicional.</p>
+ <p><strong>Computador:</strong> ${esc(machine?.target||'Selecione um computador')}</p>
+ <button class="btn danger" data-act="downloads-cleanup" ${!valid||S.busy?'disabled':''}>Excluir todos os Downloads de todos os usuários</button>
+ <p class="hint">Arquivos em uso, falhas de permissão e pastas redirecionadas são informados no resultado. A pasta Downloads de cada usuário é preservada.</p>
  ${result?`<div class="note ${result.ok===false?'red':'blue'}">${esc(result.message||'Confira o resultado da limpeza de Downloads.')}</div>${prettyData(result.result)}`:''}
  </div>`);
 }
@@ -70,7 +69,6 @@ scripts=function(){
 // Reimplementa a renderização da última versão para registrar a nova aba;
 // não interfere nos dados armazenados, apenas troca o conteúdo visível.
 render=function(){
- if(S.downloadsPreview&&S.downloadsPreview.target!==S.selected){S.downloadsPreview=null;S.downloadsSelected=new Set();}
  sidebar();
  const fns={dashboard,machines,remote,printers,tickets,scripts,logs,settings,assets,maintenancePage,commands,software,winutil};
  const page=S.page==='maintenance'?'maintenancePage':S.page;
@@ -87,28 +85,15 @@ switchPage=function(page){
 };
 const previousUpgradeAct=act;
 act=async function(action,data={}){
- if(action==='downloads-preview'){
-  const m=currentMachine();if(!m)return;
-  const days=Number(document.querySelector('#downloads-days')?.value||S.downloadsDays);S.downloadsDays=days;
-  return busyCall(async()=>{
-   S.downloadsPreview=null;S.downloadsSelected=new Set();S.downloadsResult=null;render();
-   const d=await request(`maintenance/downloads-preview?target=${encodeURIComponent(m.target)}&days=${days}`);
-   if(S.selected!==m.target)return;
-   S.downloadsPreview={target:m.target,days,preview_id:d.preview_id,files:d.files||[],result:d.result};
-   render();toast(d.message||'Prévia carregada. Revise e selecione apenas os arquivos que deseja excluir.',d.ok===false);
-  },'');
- }
  if(action==='downloads-cleanup'){
-  const m=currentMachine(),preview=S.downloadsPreview;
-  if(!m||!preview||preview.target!==m.target)return toast('Consulte uma nova prévia para o computador selecionado.',true);
-  const files=[...S.downloadsSelected].filter(id=>preview.files.some(f=>f.id===id));
-  if(!files.length)return toast('Selecione individualmente os arquivos a excluir.',true);
+  const m=currentMachine();if(!m)return;
+  if(deviceType(m)!=='computer')return toast('Selecione um computador identificado.',true);
   return busyCall(async()=>{
-    if(S.selected!==m.target||S.downloadsPreview!==preview)throw Error('O computador ou a prévia mudou. Consulte novamente.');
-    S.downloadsPreview=null;S.downloadsSelected=new Set();render();
-    const d=await request('maintenance/downloads-cleanup',{target:m.target,preview_id:preview.preview_id,files});
-    S.downloadsResult={target:m.target,...d};render();toast(d.message||'Confira o resultado da limpeza de Downloads.',d.ok===false);
-   },'');
+   if(S.selected!==m.target)throw Error('O computador selecionado mudou.');
+   S.downloadsResult=null;render();
+   const d=await request('maintenance/downloads-cleanup',{target:m.target});
+   S.downloadsResult={target:m.target,...d};render();toast(d.message||'Confira o resultado da limpeza de Downloads.',d.ok===false);
+  },'');
  }
  if(action==='winutil-copy'){
   const command='irm https://christitus.com/win | iex';
@@ -122,13 +107,4 @@ act=async function(action,data={}){
 };
 main.addEventListener('change',e=>{
  if(e.target.id==='scripts-machine-picker')setActiveTarget(e.target.value);
- if(e.target.id==='downloads-days'){
-  S.downloadsDays=Number(e.target.value);S.downloadsPreview=null;S.downloadsSelected=new Set();render();
- }
- if(e.target.matches?.('[data-download-id]')){
-  const preview=S.downloadsPreview,id=e.target.dataset.downloadId;
-  if(preview?.target!==S.selected||!preview.files.some(f=>f.id===id))return;
-  if(e.target.checked)S.downloadsSelected.add(id);else S.downloadsSelected.delete(id);
-  render();
- }
 });

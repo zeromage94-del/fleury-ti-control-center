@@ -40,7 +40,9 @@ def smoke(exe, data, env):
         assert len(catalog)>40 and any(p['winget_id']=='7zip.7zip' for p in catalog)
         drivers=api('printers/drivers/catalog')
         assert 'packages' in drivers and drivers['official_url'].startswith('https://www.zebra.com/')
-        with urlopen(base+'/static/upgrade.js',timeout=5) as response: assert b'downloads-preview' in response.read()
+        with urlopen(base+'/static/upgrade.js',timeout=5) as response:
+            script=response.read()
+            assert b'downloads-cleanup' in script and b'downloads-preview' not in script
         with urlopen(base+'/static/integrations.js',timeout=5) as response: assert b'printers/drivers/change' in response.read()
         with urlopen(base+'/static/fleet.js',timeout=5) as response: assert b'softwareCatalogError' in response.read()
         api('machines/add',{'target':'PC-PACKAGE-SIM','name':'Ficticio CI'})
