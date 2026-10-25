@@ -18,7 +18,7 @@ def probe(target, ping):
     opened = []
     for port in PORTS:
         try:
-            with socket.create_connection((target, port), timeout=0.18):
+            with socket.create_connection((target, port), timeout=0.5):
                 opened.append(port)
         except OSError:
             continue
@@ -30,7 +30,7 @@ def probe(target, ping):
 
 def validate_segments(values):
     if not isinstance(values, list) or not 1 <= len(values) <= 8:
-        raise ValueError('Informe de 1 a 8 segmentos privados, com até 256 endereços cada.')
+        raise ValueError('Informe de 1 a 8 segmentos privados, com até 4096 endereços no total.')
     result = []
     blocks = [ipaddress.ip_network(x) for x in ('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')]
     for value in values:
@@ -38,8 +38,11 @@ def validate_segments(values):
             subnet = ipaddress.ip_network(value, strict=False)
         except (TypeError, ValueError) as exc:
             raise ValueError('Segmento inválido.') from exc
-        if subnet.version != 4 or subnet.num_addresses > 256 or not any(subnet.subnet_of(b) for b in blocks):
-            raise ValueError('Use segmentos IPv4 privados de até /24 por segmento.')
+        if subnet.version != 4 or subnet.num_addresses > 4096 or not any(subnet.subnet_of(b) for b in blocks):
+            raise ValueError('Use segmentos IPv4 privados de /20 ou menores, até 4096 endereços no total.')
         if str(subnet) not in result:
             result.append(str(subnet))
-    return result
+    collapsed=list(ipaddress.collapse_addresses(ipaddress.ip_network(x) for x in result))
+    if sum(n.num_addresses for n in collapsed)>4096:
+        raise ValueError('Limite de 4096 endereços por descoberta. Divida a rede em segmentos.')
+    return [str(n) for n in collapsed]

@@ -36,6 +36,9 @@ def smoke(exe, data, env):
             request=Request(base+'/api/'+path,data=raw,headers={'X-Fleury-Token':token,'Content-Type':'application/json'})
             with urlopen(request,timeout=5) as response: return json.load(response)
         assert 'machines' in api('status')
+        catalog=api('software/catalog')['programs']
+        assert len(catalog)>40 and any(p['winget_id']=='7zip.7zip' for p in catalog)
+        with urlopen(base+'/static/fleet.js',timeout=5) as response: assert b'softwareCatalogError' in response.read()
         api('machines/add',{'target':'PC-PACKAGE-SIM','name':'Ficticio CI'})
         assert any(x['target']=='PC-PACKAGE-SIM' for x in api('machines'))
         with urlopen(base+'/static/mark.png',timeout=5) as response: assert response.read().startswith(b'\x89PNG')

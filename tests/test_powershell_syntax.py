@@ -36,7 +36,9 @@ foreach($property in $scripts.PSObject.Properties){
 if($failed){exit 1}
 Write-Output ('Parsed '+$scripts.PSObject.Properties.Name.Count+' scripts without executing them.')
 ''',encoding='utf-8')
-            result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-File',str(parser),str(source)],capture_output=True,text=True,timeout=40)
+            # Only invoke the parser API; do not execute the scripts under test or change execution policy.
+            command="$InputPath='"+str(source).replace("'","''")+"';"+parser.read_text('utf-8').replace('param($InputPath)','',1)
+            result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',command],capture_output=True,text=True,timeout=40)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
 if __name__=='__main__': unittest.main()

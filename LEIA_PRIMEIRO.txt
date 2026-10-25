@@ -1,4 +1,4 @@
-Fleury TI Control Center v1.3.1 - Distribuicao independente
+Fleury TI Control Center v1.3.2 - Distribuicao independente
 
 FORMATO PORTATIL COMPILADO NO WINDOWS
 - Extraia TODO o arquivo ZIP para uma pasta gravavel e execute FleuryTIControlCenter.exe.
@@ -28,4 +28,3 @@ SUPORTE / LOGS
 - Instalado: %LOCALAPPDATA%\FleuryTIControlCenter\data\logs\runtime.log
 
 Criado por Ana Tazinaffo
-

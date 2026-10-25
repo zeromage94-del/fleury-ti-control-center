@@ -29,3 +29,26 @@ assert(vm.runInContext("MENUS.some(x=>x[0]==='integrations')",context));
 vm.runInContext(`S.integrationCatalog={printers:[{id:'p1',name:'Teste',address:'127.0.0.1:9100'}],labels:[{id:'l1',name:'Teste'}]};S.page='integrations';render();`,context);
 assert(nodes.get('#main').innerHTML.includes('zebra-print'));
 console.log(`${scripts.length} scripts carregados; todas as páginas renderizadas; ${actions.size} ações verificadas.`);
+// Regression: navigation during another operation must still load the catalog.
+(async()=>{
+ assert.equal(vm.runInContext("MENUS.filter(x=>['software','winutil'].includes(x[0])).length",context),1);
+ await vm.runInContext(`(async()=>{
+  let calls=0,resolve;
+  request=async path=>{if(path==='software/jobs')return [];calls++;return new Promise(r=>resolve=r);};
+  S.busy=true;S.softwareCatalog=[];switchPage('software');
+  const pending=fetchSoftwareCatalog();
+  if(calls!==1)throw Error('Catálogo ignorado ou duplicado durante operação');
+  resolve({programs:[{key:'firefox',name:'Firefox',category:'Navegadores',winget_id:'Mozilla.Firefox'}]});
+  await pending;
+  if(!main.innerHTML.includes('Mozilla.Firefox'))throw Error('Catálogo não renderizado');
+  S.softwareCatalog=[];request=async()=>{throw Error('Falha simulada');};
+  await fetchSoftwareCatalog();
+  if(!main.innerHTML.includes('Falha simulada'))throw Error('Erro invisível');
+  request=async()=>({programs:[{key:'7zip',name:'7-Zip',category:'Utilitários',winget_id:'7zip.7zip'}]});
+  await act('software-refresh');
+  if(!main.innerHTML.includes('7zip.7zip')||S.softwareCatalogError)throw Error('Retry falhou');
+  S.page='machines';switchPage('winutil');
+  if(S.page!=='software')throw Error('Atalho legado não redirecionado');
+ })()`,context);
+ console.log('Catálogo: carregamento com operação ocupada, deduplicação, falha visível, retry e menu único aprovados.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

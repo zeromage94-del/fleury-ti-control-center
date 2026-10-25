@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import time
+import threading
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
@@ -230,6 +232,54 @@ class SimulatedOperations(unittest.TestCase):
             self.assertEqual(self.post('/api/tickets/zammad-sync')['updated'],300)
         self.assertEqual(len(self.get('/api/tickets')),300)
         self.assertEqual(self.get('/api/tickets')[0]['status'],'Aberto')
+
+    def test_slow_computer_and_jammed_printer_stateful_recovery(self):
+        state={'jobs':3,'spooler':'Stopped','reads':0}
+        def simulated_remote(target,script,*args,**kwargs):
+            self.assertEqual(target,'PC-SIM')
+            time.sleep(.02)  # Delayed transport; never runs PowerShell.
+            state['reads']+=1
+            if 'Remove-PrintJob' in script:
+                count=state['jobs'];state['jobs']=0
+                return {'Impressora':'Zebra','Removidos':count}
+            if 'Restart-Service -Name Spooler' in script:
+                state['spooler']='Running';return {'Spooler':'Running'}
+            if 'Get-Printer' in script:
+                return [{'Name':'Zebra','PrinterStatus':'Error' if state['jobs'] else 'Normal','Jobs':state['jobs']}]
+            return {'CPUPercent':98,'MemoriaLivreMB':128,'DiscoAtivoPercent':100,'Simulado':True}
+        with patch.object(app,'remote_script',side_effect=simulated_remote):
+            self.assertEqual(self.get('/api/diagnostics/performance')['result']['CPUPercent'],98)
+            self.assertEqual(self.get('/api/admin/printers')['result'][0]['PrinterStatus'],'Error')
+            self.assertEqual(self.post('/api/admin/clear-print',printer='Zebra')['result']['Removidos'],3)
+            self.assertEqual(self.post('/api/admin/spooler')['result']['Spooler'],'Running')
+            self.assertEqual(self.get('/api/admin/printers')['result'][0]['PrinterStatus'],'Normal')
+        self.assertEqual(state['reads'],5)
+
+    def test_timeout_and_native_failure_are_not_success(self):
+        for path,body in [('/api/admin/spooler',{}),('/api/admin/clear-print',{'printer':'Zebra'}),('/api/maintenance/disk-tool',{'tool':'sfc-scan'})]:
+            with self.subTest(path=path),patch.object(app,'remote_script',side_effect=RuntimeError('Tempo limite simulado; estado remoto desconhecido')):
+                with self.assertRaises(RuntimeError):self.post(path,**body)
+                self.assertEqual(app.rows('SELECT success FROM audit ORDER BY id DESC LIMIT 1')[0]['success'],0)
+        with patch.object(app,'remote_script',return_value={'Codigo':1,'Saida':'Falha simulada'}):
+            self.assertFalse(self.post('/api/maintenance/disk-tool',tool='sfc-scan')['ok'])
+
+    def test_slow_software_queue_does_not_block_other_computer(self):
+        import software_jobs
+        entered,release,other=threading.Event(),threading.Event(),threading.Event()
+        def execute(target,operation,ids):
+            if target=='PC-SIM':entered.set();release.wait(3)
+            else:other.set()
+            return {'Instalacoes':[{'CodigoSaida':0}]}
+        manager=software_jobs.Manager(app.db,app.audit,app.now,execute)
+        try:
+            manager.submit('PC-SIM','install',['7zip'],['7zip.7zip'])
+            self.assertTrue(entered.wait(2))
+            manager.submit('PC-SECOND','install',['7zip'],['7zip.7zip'])
+            self.assertTrue(other.wait(2))
+            self.assertTrue(any(j['state']=='running' for j in manager.list()))
+        finally:
+            release.set();manager.pool.shutdown(wait=True)
+        self.assertTrue(all(j['state']=='succeeded' for j in manager.list()))
 
 
 if __name__ == '__main__': unittest.main()

@@ -1,3 +1,7 @@
+# Estado atual: v1.3.2
+
+25/10/2026: 61 testes Python e regressões JavaScript aprovados localmente. Consulte [relatório da simulação](VALIDACAO_1.3.2.md). Build desta versão pendente de confirmação no GitHub Actions. O histórico abaixo refere-se às versões anteriores.
+
 # Validação da migração
 
 Data: 20/10/2026. Base: ZIP v1.2 do usuário.

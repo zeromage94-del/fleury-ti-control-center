@@ -83,19 +83,29 @@ function software(){
  </aside></div>`;
 }
 
-async function fetchSoftwareCatalog(){
- const d=await request('software/catalog');
- S.softwareCatalog=Array.isArray(d.programs)?d.programs:[];
- const allowed=new Set(S.softwareCatalog.map(x=>x.key));
- S.softwareSelected=new Set([...S.softwareSelected].filter(k=>allowed.has(k)));
- render();
+let softwareCatalogPending=null;
+S.softwareCatalogError='';
+function fetchSoftwareCatalog(){
+ if(softwareCatalogPending)return softwareCatalogPending;
+ S.softwareCatalogError='';
+ softwareCatalogPending=(async()=>{
+  try{
+   const d=await request('software/catalog');
+   if(!Array.isArray(d.programs)||!d.programs.length)throw Error('Catálogo vazio ou inválido. Atualize o aplicativo e tente novamente.');
+   S.softwareCatalog=d.programs;
+   const allowed=new Set(d.programs.map(x=>x.key));
+   S.softwareSelected=new Set([...S.softwareSelected].filter(k=>allowed.has(k)));
+  }catch(e){S.softwareCatalogError=e.message;}
+  finally{softwareCatalogPending=null;if(S.page==='software')render();}
+ })();
+ return softwareCatalogPending;
 }
 
 const originalSwSwitch=switchPage;
 switchPage=function(page){
  originalSwSwitch(page);
  if(page==='software'&&!S.softwareCatalog.length){
-  busyCall(fetchSoftwareCatalog,'');
+  fetchSoftwareCatalog();
  }
 };
 
@@ -114,7 +124,7 @@ act=async function(action,data={}){
    render();toast('Diagnóstico concluído.');
   },'');
  }
- if(action==='software-refresh') return busyCall(fetchSoftwareCatalog,'Catálogo atualizado.');
+ if(action==='software-refresh') return fetchSoftwareCatalog();
  if(action==='software-clear'){S.softwareSelected.clear();render();return;}
  if(['software-install','software-uninstall'].includes(action)){
   const m=currentMachine();if(!m)return;

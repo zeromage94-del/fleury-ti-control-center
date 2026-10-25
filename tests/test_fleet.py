@@ -34,6 +34,15 @@ class DiscoveryTests(unittest.TestCase):
         self.assertTrue(info['alive']);self.assertEqual(info['device_type'],'printer')
         ping.assert_not_called()
 
+    def test_real_interface_mask_and_larger_network(self):
+        with patch.object(app,'ps_json',return_value=[{'IPAddress':'192.168.2.9','PrefixLength':23}]):
+            self.assertEqual(app.local_segments(),['192.168.2.0/23'])
+        self.assertEqual(device_discovery.validate_segments(['10.0.0.0/20','10.0.1.0/24']),['10.0.0.0/20'])
+        with self.assertRaises(ValueError):
+            device_discovery.validate_segments(['10.0.0.0/20','10.0.16.0/20'])
+        with patch.object(app,'ps_json',return_value=[{'IPAddress':'10.0.0.9','PrefixLength':16}]):
+            with self.assertRaises(ValueError):app.local_segments()
+
     def test_package_scripts_require_machine_scope_without_fallback(self):
         for body in (software_catalog.INSTALL_PS,software_catalog.UNINSTALL_PS):
             self.assertIn('--scope machine',body)
@@ -77,6 +86,13 @@ class JobTests(unittest.TestCase):
         with app.db() as c:c.execute("UPDATE machines SET device_type='printer',type_source='manual' WHERE target='PRN-TEST'")
         app.record_device('PRN-TEST',{'alive':True,'device_type':'computer','evidence':'port'})
         self.assertEqual(app.rows('SELECT device_type FROM machines')[0]['device_type'],'printer')
+
+    def test_filtered_neighbor_is_not_lost_after_scan(self):
+        with patch.object(app,'scan_targets',return_value=0),patch.object(app,'discover_neighbors',return_value=[('192.168.1.2','aa-bb-cc-dd-ee-ff'),('192.168.2.2','other')]):
+            result=app.scan_segments(['192.168.1.0/30'])
+        self.assertEqual(result['neighbors_added'],1)
+        self.assertEqual(result['tested'],2)
+        self.assertEqual(app.rows('SELECT target FROM machines'),[{'target':'192.168.1.2'}])
 
     def test_async_job_deduplicates_and_records_actual_failure(self):
         entered,release=threading.Event(),threading.Event()

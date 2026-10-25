@@ -259,7 +259,7 @@ def scan_targets(targets):
 
 
 def scan_neighbors():
-    seen = discover_neighbors()[:250]
+    seen = list(dict.fromkeys(discover_neighbors()))
     with ThreadPoolExecutor(max_workers=24) as pool:
         futures = {pool.submit(device_discovery.probe,t,ping_one):(t,mac) for t,mac in seen}
         online = 0
@@ -276,9 +276,25 @@ def scan_segments(segments):
     segments = device_discovery.validate_segments(segments)
     targets = sorted({str(ip) for cidr in segments for ip in ipaddress.ip_network(cidr).hosts()})
     count = scan_targets(targets)
+    # A varredura ativa alimenta ARP. Preserve vizinhos mesmo com ICMP/TCP filtrado.
+    warnings=[]
+    try:
+        neighbors=dict(discover_neighbors())
+    except Exception as exc:
+        neighbors={};warnings.append('Não foi possível consultar vizinhos: '+str(exc))
+    known=0
+    networks=[ipaddress.ip_network(c) for c in segments]
+    for target,mac in neighbors.items():
+        if any(ipaddress.ip_address(target) in n for n in networks):
+            existing=rows('SELECT target FROM machines WHERE target=?',(target,))
+            if not existing:
+                save_machine(target,mac=mac,status='Não verificada',origin='Vizinho de rede')
+                known+=1
+            elif mac:
+                with db() as c:c.execute('UPDATE machines SET mac=? WHERE target=?',(mac,target))
     audit('Descoberta multissegmento',', '.join(segments),True,f'{count}/{len(targets)} dispositivos acessíveis')
-    return {'found':count,'online':count,'segments':segments,
-            'note':'Detecta respostas ICMP ou TCP mesmo com ping bloqueado. Dispositivos isolados ou filtrados podem não aparecer; classificação por portas é provável.'}
+    return {'found':count+known,'online':count,'neighbors_added':known,'tested':len(targets),'warnings':warnings,'segments':segments,
+            'note':f'{len(targets)} endereços consultados; {count} responderam; {known} vizinhos adicionais. '+ ' '.join(warnings)+' Dispositivos isolados ou desligados podem não aparecer.'}
 
 
 def scan_subnet(cidr):
@@ -293,10 +309,10 @@ def local_segments():
         try:
             ip=ipaddress.ip_address(item['IPAddress'])
             if ip.is_loopback or ip.is_link_local or not ip.is_private: continue
-            prefix=max(24,int(item['PrefixLength']))
+            prefix=int(item['PrefixLength'])
             result.append(str(ipaddress.ip_network(str(ip)+'/'+str(prefix),strict=False)))
         except (ValueError,KeyError,TypeError): continue
-    return list(dict.fromkeys(result))[:8]
+    return device_discovery.validate_segments(list(dict.fromkeys(result))) if result else []
 
 
 def require_computer(target):
@@ -681,7 +697,7 @@ def sync_zammad():
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'FleuryTI/1.3'
+    server_version = 'FleuryTI/1.3.2'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/'):
@@ -1187,7 +1203,7 @@ def main():
     server.restore_previews = {}
     url = f'http://127.0.0.1:{port}/'
     print('==============================================')
-    print(' FLEURY TI CONTROL CENTER - versão 1.3.1')
+    print(' FLEURY TI CONTROL CENTER - versão 1.3.2')
     print(' Local:', url)
     print(' Usuário:', metrics()['username'])
     print(' Windows:', WIN)
@@ -1206,4 +1222,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

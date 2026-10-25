@@ -357,4 +357,3 @@ actions=function(){
  const selector=`<div class="quick-dashboard-target"><label class="field-label" for="quick-machine-picker">Aplicar ações rápidas na máquina</label>${machinePicker('quick-machine-picker')}<button class="btn sm" data-act="machine-page">${ico('chevron')} Abrir todas as ferramentas</button></div>`;
  return html.replace('<div class="action-grid">',selector+'<div class="action-grid">');
 };
-

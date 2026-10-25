@@ -11,7 +11,7 @@ import venv
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '1.3.1'
+VERSION = '1.3.2'
 BIN = 'FleuryTIControlCenter.exe'
 NAME = 'FleuryTIControlCenter'
 OUT = ROOT / 'entrega_windows'
@@ -95,4 +95,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

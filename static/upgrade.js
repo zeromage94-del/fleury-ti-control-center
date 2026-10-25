@@ -18,7 +18,7 @@ const globalTargetSelect=document.querySelector('#global-machine-picker');
 globalTargetSelect.addEventListener('change',e=>setActiveTarget(e.target.value));
 document.querySelector('#global-add-machine').addEventListener('click',()=>act('add-machine'));
 // Inclui um painel próprio WinUtil, ao lado do catálogo de instalação nativo.
-MENUS.splice(MENUS.findIndex(x=>x[0]==='software')+1,0,['winutil','download','WinUtil • Aplicativos']);
+// Catálogo único: atalhos legados são redirecionados para software.
 function winutil(){
  const body=software().replace('Instalação de Software','WinUtil • Instalar e Desinstalar');
  const official=`<section class="winutil-official"><div><strong>${ico('shield')} WinUtil original — Chris Titus Tech</strong><p>O catálogo abaixo funciona dentro do Fleury TI por WinGet, com permissões autorizadas. O projeto original abre em PowerShell separado; não é incorporado nem executado automaticamente em máquinas remotas.</p><code id="winutil-official-command">irm https://christitus.com/win | iex</code></div><div class="winutil-links"><button type="button" class="btn" data-act="winutil-copy">${ico('list')} Copiar comando oficial</button><button type="button" class="btn" data-act="winutil-repo">${ico('link')} Abrir GitHub oficial</button><button type="button" class="btn primary" data-act="software-page">${ico('download')} Central de instalação</button></div></section>`;
