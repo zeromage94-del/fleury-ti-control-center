@@ -87,6 +87,19 @@ class JobTests(unittest.TestCase):
         app.record_device('PRN-TEST',{'alive':True,'device_type':'computer','evidence':'port'})
         self.assertEqual(app.rows('SELECT device_type FROM machines')[0]['device_type'],'printer')
 
+    def test_neighbor_scan_deduplicates_ip_even_if_mac_changes(self):
+        neighbors=[('192.168.1.2','00-00-00-00-00-01'),
+                   ('192.168.1.2','00-00-00-00-00-02')]
+        response={'alive':True,'device_type':'computer','evidence':'WinRM simulated'}
+        with patch.object(app,'discover_neighbors',return_value=neighbors), \
+             patch.object(device_discovery,'probe',return_value=response) as probe:
+            result=app.scan_neighbors()
+        self.assertEqual(result['found'],1)
+        self.assertEqual(result['online'],1)
+        probe.assert_called_once()
+        machine=app.rows('SELECT target,mac FROM machines WHERE target=?',('192.168.1.2',))[0]
+        self.assertEqual(machine['mac'],'00-00-00-00-00-02')
+
     def test_filtered_neighbor_is_not_lost_after_scan(self):
         with patch.object(app,'scan_targets',return_value=0),patch.object(app,'discover_neighbors',return_value=[('192.168.1.2','aa-bb-cc-dd-ee-ff'),('192.168.2.2','other')]):
             result=app.scan_segments(['192.168.1.0/30'])

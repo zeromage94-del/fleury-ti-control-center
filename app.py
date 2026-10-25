@@ -259,7 +259,9 @@ def scan_targets(targets):
 
 
 def scan_neighbors():
-    seen = list(dict.fromkeys(discover_neighbors()))
+    # Deduplicate by IPv4, not by (IPv4, MAC): ARP can report the same host more than once.
+    # The most recent MAC is retained for the unique target.
+    seen = list(dict(discover_neighbors()).items())
     with ThreadPoolExecutor(max_workers=24) as pool:
         futures = {pool.submit(device_discovery.probe,t,ping_one):(t,mac) for t,mac in seen}
         online = 0
