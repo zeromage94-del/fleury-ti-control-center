@@ -1,6 +1,8 @@
 # Estado atual: v1.4.1
 
-Downloads: o clique em **Excluir selecionados** executa diretamente, sem modal nem campo de confirmação adicional. Prévia, seleção explícita, sessão, expiração, execução única e auditoria preservadas. Cinco testes HTTP de Downloads e o smoke JavaScript aprovados localmente. O build Windows desta revisão será registrado após conclusão.
+Downloads: o clique em **Excluir selecionados** executa diretamente, sem modal nem campo de confirmação adicional. Prévia, seleção explícita, sessão, expiração, execução única e auditoria preservadas. Cinco testes HTTP de Downloads e o smoke JavaScript aprovados localmente.
+
+[Build Windows #12 aprovado](https://github.com/zeromage94-del/fleury-ti-control-center/actions/runs/40219296138), commit `82b0b7f431964c4b6a3c6ff834b5a4e3fc20b48d`, duração de 1m47s: regressões, empacotamento e smoke dos executáveis aprovados. **Fleury-TI-Windows-x64** contém instalador EXE, portátil v1.4.1 e SHA256.txt; digest do artefato `bfd4e204ce62e2f7ed3ae6b03058d9d925cc7ab6d3297e9dc495a6c401390f95`. **Fleury-TI-Simulation-Report** contém os resultados Windows; digest `9819ccf0d2471a0d18c5d6e02b6b63a4ba87e995b0c3dbf071dd7c6725879105`. São digests dos artefatos GitHub; hashes individuais estão em SHA256.txt. Retenção de 14 dias.
 
 ## Histórico: v1.3.2
 
