@@ -108,9 +108,9 @@ def initialize():
           updated_at TEXT NOT NULL, fingerprint TEXT NOT NULL,
           result TEXT DEFAULT '{}', error TEXT DEFAULT '')""")
         machine_columns = {r['name'] for r in c.execute('PRAGMA table_info(machines)')}
-        for name in ('device_type', 'type_source', 'type_evidence'):
+        for name, default in (('device_type', 'unknown'), ('type_source', ''), ('type_evidence', '')):
             if name not in machine_columns:
-                c.execute('ALTER TABLE machines ADD COLUMN ' + name + " TEXT DEFAULT 'unknown'")
+                c.execute(f"ALTER TABLE machines ADD COLUMN {name} TEXT DEFAULT '{default}'")
         columns = {r['name'] for r in c.execute('PRAGMA table_info(tickets)')}
         for name, decl in (
             ('category', "TEXT DEFAULT 'Não classificado'"),
