@@ -32,7 +32,7 @@ def base_url(variable):
 
 def api(variable, path, method='GET', payload=None, token_variable=None):
     url = base_url(variable) + path
-    headers = {'Accept': 'application/json', 'User-Agent': 'Fleury-TI/1.2.1'}
+    headers = {'Accept': 'application/json', 'User-Agent': 'Fleury-TI/1.3.2'}
     if token_variable:
         token = os.environ.get(token_variable, '').strip()
         if not token or '\n' in token or '\r' in token:
